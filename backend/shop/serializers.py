@@ -3,23 +3,38 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import Order, OrderItem, Payment, Product
+from .models import Category, Order, OrderItem, Payment, Product
 from .services import available_quantity
 
 
 class ProductSerializer(serializers.ModelSerializer):
     # Поле, которого нет в таблице: считаем, сколько можно купить с учётом броней
     available = serializers.SerializerMethodField()
+    category_id = serializers.PrimaryKeyRelatedField(
+        source="category", queryset=Category.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Product
         fields = [
-            "product_id", "product_name", "author", "genre",
+            "product_id", "product_name", "author", "genre", "category_id", "category_name",
             "price", "stock_quantity", "available", "last_updated",
         ]
 
+    category_name = serializers.CharField(source="category.category_name", read_only=True, allow_null=True)
+
     def get_available(self, product):
         return max(available_quantity(product), 0)
+
+    def validate_price(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Price must be greater than zero.")
+        return value
+
+    def validate_stock_quantity(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Stock quantity cannot be negative.")
+        return value
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

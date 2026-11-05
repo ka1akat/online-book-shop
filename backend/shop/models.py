@@ -9,8 +9,21 @@ class Employee(models.Model):
         ("manager", "Manager"),
         ("admin", "Admin"),
     ]
+    employee_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    login = models.CharField(max_length=150, unique=True, null=True, blank=True)
+    full_name = models.CharField(max_length=150, blank=True)
+    password_hash = models.CharField(max_length=128, blank=True)
+    is_active = models.BooleanField(default=True)
     role = models.CharField(max_length=20, choices=ROLES)
+
+    def save(self, *args, **kwargs):
+        if self.user_id:
+            self.login = self.user.get_username()
+            self.full_name = self.user.get_full_name() or self.user.get_username()
+            self.password_hash = self.user.password
+            self.is_active = self.user.is_active
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"
@@ -31,6 +44,34 @@ class Customer(models.Model):
         return f"{self.full_name} ({self.email})"
 
 
+class Address(models.Model):
+    address_id = models.AutoField(primary_key=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="addresses")
+    city = models.CharField(max_length=100)
+    street = models.CharField(max_length=150)
+    building = models.CharField(max_length=30)
+    apartment = models.CharField(max_length=30, blank=True)
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "addresses"
+
+    def __str__(self):
+        return f"{self.city}, {self.street} {self.building}"
+
+
+class Category(models.Model):
+    category_id = models.AutoField(primary_key=True)
+    category_name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "categories"
+
+    def __str__(self):
+        return self.category_name
+
+
 class Product(models.Model):
     """PRODUCTS — какие книги продаём и сколько их на складе."""
 
@@ -38,6 +79,7 @@ class Product(models.Model):
     product_name = models.CharField(max_length=100)
     author = models.CharField(max_length=100)
     genre = models.CharField(max_length=30)
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, null=True, blank=True, db_column="category_id", related_name="products")
     price = models.DecimalField(max_digits=10, decimal_places=2)  # цена в KZT
     stock_quantity = models.IntegerField()  # сколько штук на складе
     last_updated = models.DateField(auto_now=True)  # обновляется при каждом сохранении
@@ -70,6 +112,7 @@ class Order(models.Model):
     customer = models.ForeignKey(
         Customer, on_delete=models.PROTECT, db_column="customer_id", related_name="orders"
     )
+    address = models.ForeignKey("Address", on_delete=models.PROTECT, null=True, blank=True, db_column="address_id", related_name="orders")
     order_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.RESERVED)
     reserved_until = models.DateTimeField()  # время заказа + 15 минут (BR-01)
@@ -137,8 +180,21 @@ class StockLog(models.Model):
     )
     changed_by = models.CharField(max_length=50)  # логин сотрудника или 'payment-system'
     change_amount = models.IntegerField()  # например -1 после продажи, +20 при поставке
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, null=True, blank=True, db_column="employee_id", related_name="stock_logs")
     changed_at = models.DateTimeField(auto_now_add=True)
     reason = models.CharField(max_length=20)  # sale, delivery, correction
 
     class Meta:
         db_table = "stock_log"
+
+
+class StockRequest(models.Model):
+    request_id = models.AutoField(primary_key=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, db_column="customer_id", related_name="stock_requests")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, db_column="product_id", related_name="stock_requests")
+    requested_at = models.DateTimeField(auto_now_add=True)
+    notified = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "stock_requests"
+        constraints = [models.UniqueConstraint(fields=["customer", "product"], name="unique_customer_product_stock_request")]

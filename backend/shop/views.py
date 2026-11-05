@@ -1,8 +1,8 @@
 from django.contrib.auth import authenticate
 from rest_framework import status
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
@@ -26,8 +26,14 @@ class LowStockView(ListAPIView):
         return Product.objects.filter(stock_quantity__lt=10).order_by("stock_quantity")
 
 
-class ProductListView(ListAPIView):
+class ProductListView(ListCreateAPIView):
     serializer_class = ProductSerializer
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsWarehouseOrManager()]
+        return [AllowAny()]
 
     def get_queryset(self):
         expire_reservations()

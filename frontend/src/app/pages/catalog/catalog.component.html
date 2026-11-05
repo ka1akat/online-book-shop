@@ -4,23 +4,21 @@
     <p>Pick a genre and find your next book</p>
 
     @if (!loading() && !error()) {
-      <div class="genres">
-        <button
-          class="btn"
-          [class.btn-secondary]="selectedGenre() !== ''"
-          (click)="selectedGenre.set('')"
-        >
-          All
-        </button>
-        @for (g of genres(); track g) {
-          <button
-            class="btn"
-            [class.btn-secondary]="selectedGenre() !== g"
-            (click)="selectedGenre.set(g)"
+      <div class="catalog-controls">
+        <label class="genre-filter">
+          <span>Browse by genre</span>
+          <select
+            class="genre-select"
+            [value]="selectedGenre()"
+            (change)="selectedGenre.set($any($event.target).value)"
           >
-            {{ g }}
-          </button>
-        }
+            <option value="">All books</option>
+            @for (g of genres(); track g) {
+              <option [value]="g">{{ g }}</option>
+            }
+          </select>
+        </label>
+        <span class="catalog-count">{{ filteredProducts().length }} books</span>
       </div>
     }
   </header>
