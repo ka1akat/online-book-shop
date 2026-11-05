@@ -1,7 +1,7 @@
 <section class="page">
   <header class="catalog-head">
-    <h1>Наши книги</h1>
-    <p>Выбери жанр и найди свою следующую книгу</p>
+    <h1>Our books</h1>
+    <p>Pick a genre and find your next book</p>
 
     @if (!loading() && !error()) {
       <div class="genres">
@@ -10,7 +10,7 @@
           [class.btn-secondary]="selectedGenre() !== ''"
           (click)="selectedGenre.set('')"
         >
-          Все
+          All
         </button>
         @for (g of genres(); track g) {
           <button
@@ -26,7 +26,7 @@
   </header>
 
   @if (loading()) {
-    <p class="muted">Загрузка…</p>
+    <p class="muted">Loading…</p>
   } @else if (error()) {
     <p class="alert alert-error">{{ error() }}</p>
   } @else {
@@ -42,7 +42,7 @@
               class="book-card-add"
               [disabled]="!canAdd(p)"
               (click)="cart.add(p)"
-              [attr.aria-label]="'Добавить в корзину: ' + p.product_name"
+              [attr.aria-label]="'Add to cart: ' + p.product_name"
             >
               +
             </button>
@@ -56,17 +56,17 @@
           <div class="book-card-info">
             <span>{{ p.genre }}</span>
             @if (p.available === 0) {
-              <span class="stock stock-out">Нет в наличии</span>
+              <span class="stock stock-out">Out of stock</span>
             } @else if (p.available < 10) {
-              <span class="stock stock-low">Осталось {{ p.available }}</span>
+              <span class="stock stock-low">Only {{ p.available }} left</span>
             } @else {
-              <span class="stock">В наличии {{ p.available }}</span>
+              <span class="stock">{{ p.available }} in stock</span>
             }
           </div>
 
           @if (cart.quantityOf(p.product_id) > 0) {
             <a class="book-card-link" routerLink="/cart">
-              В корзине: {{ cart.quantityOf(p.product_id) }}
+              In cart: {{ cart.quantityOf(p.product_id) }}
             </a>
           }
         </article>
