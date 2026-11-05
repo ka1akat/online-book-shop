@@ -1,0 +1,49 @@
+<section class="page">
+  <header class="page-head">
+    <h1>Каталог</h1>
+    <p class="muted">Книга, которой нет в наличии, не продаётся: склад проверяется в базе данных.</p>
+  </header>
+
+  @if (loading()) {
+    <p class="muted">Загрузка…</p>
+  } @else if (error()) {
+    <p class="alert alert-error">{{ error() }}</p>
+  } @else {
+    <div class="grid">
+      @for (p of products(); track p.product_id) {
+        <article class="book">
+          <div class="cover" [style.background]="coverColor(p)">
+            <span class="cover-title">{{ p.product_name }}</span>
+            <span class="cover-author">{{ p.author }}</span>
+          </div>
+
+          <div class="book-body">
+            <span class="tag">{{ p.genre }}</span>
+            <h2>{{ p.product_name }}</h2>
+            <p class="muted">{{ p.author }}</p>
+
+            <div class="book-foot">
+              <strong class="price">{{ p.price | number: '1.0-0' }} ₸</strong>
+              @if (p.available === 0) {
+                <span class="stock stock-out">Нет в наличии</span>
+              } @else if (p.available < 10) {
+                <span class="stock stock-low">Осталось {{ p.available }}</span>
+              } @else {
+                <span class="stock">В наличии {{ p.available }}</span>
+              }
+            </div>
+
+            @if (cart.quantityOf(p.product_id) > 0) {
+              <a class="btn btn-secondary" routerLink="/cart">
+                В корзине: {{ cart.quantityOf(p.product_id) }}
+              </a>
+            }
+            <button class="btn" [disabled]="!canAdd(p)" (click)="cart.add(p)">
+              {{ p.available === 0 ? 'Нет в наличии' : 'В корзину' }}
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</section>

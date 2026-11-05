@@ -1,0 +1,65 @@
+<section class="page">
+  <header class="page-head">
+    <h1>Корзина</h1>
+  </header>
+
+  @if (cart.lines().length === 0) {
+    <div class="empty">
+      <p>Корзина пуста.</p>
+      <a class="btn" routerLink="/">Перейти в каталог</a>
+    </div>
+  } @else {
+    <div class="two-col">
+      <div class="panel">
+        @for (line of cart.lines(); track line.product.product_id) {
+          <div class="line">
+            <div>
+              <strong>{{ line.product.product_name }}</strong>
+              <div class="muted small">{{ line.product.author }} · {{ line.product.product_id }}</div>
+            </div>
+            <div class="qty">
+              <button class="icon-btn" (click)="change(line, -1)" aria-label="Меньше">−</button>
+              <span>{{ line.quantity }}</span>
+              <button
+                class="icon-btn"
+                (click)="change(line, 1)"
+                [disabled]="line.quantity >= line.product.available"
+                aria-label="Больше"
+              >+</button>
+            </div>
+            <span class="line-sum">{{ +line.product.price * line.quantity | number: '1.0-0' }} ₸</span>
+          </div>
+        }
+        <div class="line line-total">
+          <strong>Итого</strong>
+          <strong>{{ cart.total() | number: '1.0-0' }} ₸</strong>
+        </div>
+      </div>
+
+      <form class="panel form" #f="ngForm" (ngSubmit)="checkout()">
+        <h2>Покупатель</h2>
+        <label>
+          Имя и фамилия
+          <input name="full_name" [(ngModel)]="customer.full_name" required maxlength="100" />
+        </label>
+        <label>
+          Email
+          <input name="email" type="email" [(ngModel)]="customer.email" required email maxlength="100" />
+        </label>
+        <label>
+          Телефон
+          <input name="phone" [(ngModel)]="customer.phone" maxlength="20" placeholder="+7 701 111 22 33" />
+        </label>
+
+        @if (error()) {
+          <p class="alert alert-error">{{ error() }}</p>
+        }
+
+        <button class="btn btn-wide" type="submit" [disabled]="f.invalid || sending()">
+          {{ sending() ? 'Оформляем…' : 'Оформить заказ' }}
+        </button>
+        <p class="muted small">После оформления книги бронируются за вами на 15 минут.</p>
+      </form>
+    </div>
+  }
+</section>

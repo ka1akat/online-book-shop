@@ -1,0 +1,21 @@
+<header class="topbar">
+  <a class="brand" routerLink="/">
+    <span class="brand-mark">B</span>
+    Online Book Shop
+  </a>
+  <nav>
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Каталог</a>
+    <a routerLink="/cart" routerLinkActive="active" class="cart-link">
+      Корзина
+      @if (cart.count() > 0) {
+        <span class="cart-count">{{ cart.count() }}</span>
+      }
+    </a>
+  </nav>
+</header>
+
+<main>
+  <router-outlet />
+</main>
+
+<footer class="footer muted small">KBTU · Online Shop Team · учебный проект</footer>

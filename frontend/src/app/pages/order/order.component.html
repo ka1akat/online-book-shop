@@ -1,0 +1,103 @@
+<section class="page">
+  @if (error()) {
+    <p class="alert alert-error">{{ error() }}</p>
+  }
+  @if (order(); as o) {
+    <header class="page-head">
+      <h1>Заказ №{{ o.order_id }}</h1>
+      <p class="muted">{{ o.customer_name }} · {{ o.order_date | date: 'dd.MM.yyyy HH:mm' }}</p>
+    </header>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="status-row">
+          <span class="badge badge-{{ o.status }}">
+            @switch (o.status) {
+              @case ('reserved') { Забронирован }
+              @case ('paid') { Оплачен }
+              @case ('cancelled') { Отменён }
+            }
+          </span>
+          @if (o.status === 'reserved') {
+            <span class="timer" [class.timer-low]="secondsLeft() < 120">
+              Бронь ещё {{ countdown() }}
+            </span>
+          }
+        </div>
+
+        @for (item of o.items; track item.order_item_id) {
+          <div class="line">
+            <div>
+              <strong>{{ item.product_name }}</strong>
+              <div class="muted small">{{ item.product_id }} · {{ item.quantity }} × {{ item.unit_price | number: '1.0-0' }} ₸</div>
+            </div>
+            <span class="line-sum">{{ item.quantity * +item.unit_price | number: '1.0-0' }} ₸</span>
+          </div>
+        }
+        <div class="line line-total">
+          <strong>Итого</strong>
+          <strong>{{ o.total | number: '1.0-0' }} ₸</strong>
+        </div>
+
+        @if (o.payments.length > 0) {
+          <h3>Попытки оплаты</h3>
+          @for (p of o.payments; track p.payment_id) {
+            <div class="line small">
+              <span class="mono">{{ p.transaction_id }}</span>
+              <span class="muted">{{ p.paid_at | date: 'HH:mm:ss' }}</span>
+              <span class="badge badge-{{ p.status }}">{{ p.status }}</span>
+            </div>
+          }
+        }
+      </div>
+
+      <div class="panel">
+        @switch (o.status) {
+          @case ('reserved') {
+            <form class="form" (ngSubmit)="pay()">
+              <h2>Оплата</h2>
+              <label>
+                Номер карты
+                <input
+                  name="card"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  placeholder="4111 1111 1111 1111"
+                  [ngModel]="cardNumber"
+                  (ngModelChange)="formatCard($event)"
+                />
+              </label>
+              @if (payError()) {
+                <p class="alert alert-error">{{ payError() }}</p>
+              }
+              <button class="btn btn-wide" type="submit" [disabled]="paying() || cardNumber.length < 19">
+                {{ paying() ? 'Оплачиваем…' : 'Оплатить ' + (o.total | number: '1.0-0') + ' ₸' }}
+              </button>
+              <p class="muted small">
+                Это учебная имитация банка, настоящие карты не нужны.
+                Любые 16 цифр — оплата пройдёт. Карта, которая заканчивается на <b>0000</b>, —
+                банк откажет.
+              </p>
+            </form>
+          }
+          @case ('paid') {
+            <div class="done">
+              <h2>Спасибо за покупку!</h2>
+              <p class="muted">Оплата прошла, книги списаны со склада, запись добавлена в STOCK_LOG.</p>
+              <a class="btn" routerLink="/">Вернуться в каталог</a>
+            </div>
+          }
+          @case ('cancelled') {
+            <div class="done">
+              <h2>Бронь истекла</h2>
+              <p class="muted">Заказ не оплатили за 15 минут, поэтому книги снова доступны другим покупателям.</p>
+              <a class="btn" routerLink="/">Оформить заново</a>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  } @else if (!error()) {
+    <p class="muted">Загрузка…</p>
+  }
+</section>

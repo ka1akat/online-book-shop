@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# База данных и секреты
+db.sqlite3
+.env
+
+# Angular
+node_modules/
+dist/
+.angular/
+
+# Mac
+.DS_Store
