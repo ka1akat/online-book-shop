@@ -1,6 +1,4 @@
-// Страница «Каталог»: загружает книги из Django и даёт положить их в корзину.
-
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../services/api.service';
@@ -19,6 +17,22 @@ export class CatalogComponent implements OnInit {
   products = signal<Product[]>([]);
   loading = signal(true);
   error = signal('');
+
+  selectedGenre = signal('');
+
+  genres = computed(() => {
+    const all = this.products()
+      .map((p) => p.genre)
+      .filter((g): g is string => !!g);
+    return [...new Set(all)].sort();
+  });
+
+  filteredProducts = computed(() => {
+    const genre = this.selectedGenre();
+    return genre
+      ? this.products().filter((p) => p.genre === genre)
+      : this.products();
+  });
 
   // Цвет «обложки» зависит от жанра — просто для красоты
   private palette = ['#2f5d50', '#8a3b2e', '#3b4a7a', '#6b4f2a', '#5a3d6e', '#2d6170'];

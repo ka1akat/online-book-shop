@@ -1,3 +1,6 @@
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from .models import Order, OrderItem, Payment, Product
@@ -67,3 +70,36 @@ class CreateOrderSerializer(serializers.Serializer):
 
 class PayOrderSerializer(serializers.Serializer):
     card_number = serializers.CharField(max_length=25)
+
+
+class RegisterSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate_email(self, value):
+        email = value.lower()
+        if User.objects.filter(username=email).exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return email
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages)
+        return value
+
+    def create(self, validated_data):
+        return User.objects.create_user(
+            username=validated_data["email"],
+            email=validated_data["email"],
+            password=validated_data["password"],
+            first_name=validated_data["full_name"],
+        )
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    

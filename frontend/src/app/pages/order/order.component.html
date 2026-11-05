@@ -4,7 +4,7 @@
   }
   @if (order(); as o) {
     <header class="page-head">
-      <h1>Заказ №{{ o.order_id }}</h1>
+      <h1>Order #{{ o.order_id }}</h1>
       <p class="muted">{{ o.customer_name }} · {{ o.order_date | date: 'dd.MM.yyyy HH:mm' }}</p>
     </header>
 
@@ -13,14 +13,14 @@
         <div class="status-row">
           <span class="badge badge-{{ o.status }}">
             @switch (o.status) {
-              @case ('reserved') { Забронирован }
-              @case ('paid') { Оплачен }
-              @case ('cancelled') { Отменён }
+              @case ('reserved') { Reserved }
+              @case ('paid') { Paid }
+              @case ('cancelled') { Cancelled }
             }
           </span>
           @if (o.status === 'reserved') {
             <span class="timer" [class.timer-low]="secondsLeft() < 120">
-              Бронь ещё {{ countdown() }}
+              Reserved for {{ countdown() }}
             </span>
           }
         </div>
@@ -35,12 +35,12 @@
           </div>
         }
         <div class="line line-total">
-          <strong>Итого</strong>
+          <strong>Total</strong>
           <strong>{{ o.total | number: '1.0-0' }} ₸</strong>
         </div>
 
         @if (o.payments.length > 0) {
-          <h3>Попытки оплаты</h3>
+          <h3>Payment attempts</h3>
           @for (p of o.payments; track p.payment_id) {
             <div class="line small">
               <span class="mono">{{ p.transaction_id }}</span>
@@ -55,9 +55,9 @@
         @switch (o.status) {
           @case ('reserved') {
             <form class="form" (ngSubmit)="pay()">
-              <h2>Оплата</h2>
+              <h2>Payment</h2>
               <label>
-                Номер карты
+                Card number
                 <input
                   name="card"
                   inputmode="numeric"
@@ -71,33 +71,32 @@
                 <p class="alert alert-error">{{ payError() }}</p>
               }
               <button class="btn btn-wide" type="submit" [disabled]="paying() || cardNumber.length < 19">
-                {{ paying() ? 'Оплачиваем…' : 'Оплатить ' + (o.total | number: '1.0-0') + ' ₸' }}
+                {{ paying() ? 'Processing…' : 'Pay ' + (o.total | number: '1.0-0') + ' ₸' }}
               </button>
               <p class="muted small">
-                Это учебная имитация банка, настоящие карты не нужны.
-                Любые 16 цифр — оплата пройдёт. Карта, которая заканчивается на <b>0000</b>, —
-                банк откажет.
+                This is a simulated bank, so no real card is needed.
+                Any 16 digits will work. A card ending in <b>0000</b> will be declined.
               </p>
             </form>
           }
           @case ('paid') {
             <div class="done">
-              <h2>Спасибо за покупку!</h2>
-              <p class="muted">Оплата прошла, книги списаны со склада, запись добавлена в STOCK_LOG.</p>
-              <a class="btn" routerLink="/">Вернуться в каталог</a>
+              <h2>Thank you for your purchase!</h2>
+              <p class="muted">Payment complete. The books were removed from stock and recorded in STOCK_LOG.</p>
+              <a class="btn" routerLink="/catalog">Back to catalog</a>
             </div>
           }
           @case ('cancelled') {
             <div class="done">
-              <h2>Бронь истекла</h2>
-              <p class="muted">Заказ не оплатили за 15 минут, поэтому книги снова доступны другим покупателям.</p>
-              <a class="btn" routerLink="/">Оформить заново</a>
+              <h2>Reservation expired</h2>
+              <p class="muted">The order wasn't paid within 15 minutes, so the books are available again.</p>
+              <a class="btn" routerLink="/catalog">Order again</a>
             </div>
           }
         }
       </div>
     </div>
   } @else if (!error()) {
-    <p class="muted">Загрузка…</p>
+    <p class="muted">Loading…</p>
   }
 </section>

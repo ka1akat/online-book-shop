@@ -8,6 +8,18 @@ import { CartLine, CustomerForm, Order, Product } from '../models';
 
 const API = 'http://localhost:8000/api';
 
+export interface RegisterForm {
+  full_name: string;
+  email: string;
+  password: string;
+}
+
+export interface RegisteredUser {
+  id: number;
+  full_name: string;
+  email: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
@@ -30,17 +42,25 @@ export class ApiService {
   payOrder(id: number, cardNumber: string): Observable<Order> {
     return this.http.post<Order>(`${API}/orders/${id}/pay/`, { card_number: cardNumber });
   }
+
+  register(form: RegisterForm): Observable<RegisteredUser> {
+    return this.http.post<RegisteredUser>(`${API}/register/`, form);
+  }
+  login(email: string, password: string): Observable<RegisteredUser> {
+    return this.http.post<RegisteredUser>(`${API}/login/`, { email, password });
+  }
 }
 
 // Достаёт понятный текст ошибки из ответа Django
 export function errorText(err: HttpErrorResponse): string {
   if (err.status === 0) {
-    return 'Нет связи с сервером. Запущен ли Django (python manage.py runserver)?';
+    return 'Cannot reach the server. Is Django running (python manage.py runserver)?';
   }
   const body = err.error;
   if (body?.detail) return body.detail;
   if (body && typeof body === 'object') {
-    return 'Проверьте поля формы: ' + Object.keys(body).join(', ');
+    return Object.values(body).flat().join(' ');
   }
-  return 'Что-то пошло не так. Попробуйте ещё раз.';
+  return 'Something went wrong. Please try again.';
 }
+

@@ -1,15 +1,19 @@
+from django.contrib.auth import authenticate
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import Order, Product
+from .permissions import IsWarehouseOrManager
 from .serializers import (
-    CreateOrderSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer,
+    CreateOrderSerializer, LoginSerializer, OrderSerializer, PayOrderSerializer,
+    ProductSerializer, RegisterSerializer,
 )
 from .services import ShopError, create_order, expire_reservations, pay_order
-from rest_framework.authentication import SessionAuthentication
-from .permissions import IsWarehouseOrManager
+
 
 class LowStockView(ListAPIView):
     """SELECT ... FROM products WHERE stock_quantity < 10 ORDER BY stock_quantity;"""
@@ -28,7 +32,8 @@ class ProductListView(ListAPIView):
     def get_queryset(self):
         expire_reservations()
         return Product.objects.order_by("product_id")
-    
+
+
 class OrderDetailView(RetrieveAPIView):
     serializer_class = OrderSerializer
 
@@ -59,3 +64,35 @@ def pay_order_view(request, pk):
     except ShopError as e:
         return Response({"detail": e.message}, status=e.status_code)
     return Response(OrderSerializer(order).data)
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def register_view(request):
+    data = RegisterSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    user = data.save()
+    return Response(
+        {"id": user.id, "full_name": user.first_name, "email": user.email},
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def login_view(request):
+    data = LoginSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    user = authenticate(
+        request,
+        username=data.validated_data["email"].lower(),
+        password=data.validated_data["password"],
+    )
+    if user is None:
+        return Response(
+            {"detail": "Incorrect email or password."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+    return Response({"id": user.id, "full_name": user.first_name, "email": user.email})

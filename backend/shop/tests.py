@@ -1,13 +1,12 @@
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from .models import Customer, Order, Payment, Product, StockLog
-from django.contrib.auth import get_user_model
-from .models import Employee
+from .models import Customer, Employee, Order, Payment, Product, StockLog
 
 GOOD_CARD = "4111 1111 1111 1111"
 BAD_CARD = "4111 1111 1111 0000"  # банк отклоняет
@@ -75,8 +74,8 @@ class ShopFlowTests(APITestCase):
         self.make_order()
         with self.assertRaises(ProtectedError):  # ON DELETE RESTRICT
             Customer.objects.get().delete()
-    
-   
+
+
 class RoleAccessTests(APITestCase):
     def login_as(self, role):
         user = get_user_model().objects.create_user(role, password="x", is_staff=True)
@@ -110,3 +109,64 @@ class RoleAccessTests(APITestCase):
     def test_support_cannot_open_payments_in_admin(self):
         self.login_as("support")
         self.assertEqual(self.client.get("/admin/shop/payment/").status_code, 403)
+
+
+class RegisterTests(APITestCase):
+    url = "/api/register/"
+    data = {
+        "full_name": "Test User",
+        "email": "Test@Example.com",
+        "password": "BookShop-2026!",
+    }
+
+    def test_register_saves_user_with_hashed_password(self):
+        response = self.client.post(self.url, self.data, format="json")
+        self.assertEqual(response.status_code, 201)
+        user = get_user_model().objects.get(username="test@example.com")
+        self.assertEqual(user.first_name, "Test User")
+        self.assertNotEqual(user.password, self.data["password"])
+        self.assertTrue(user.check_password(self.data["password"]))
+        self.assertNotIn("password", response.data)
+
+    def test_duplicate_email_is_rejected(self):
+        self.client.post(self.url, self.data, format="json")
+        response = self.client.post(self.url, self.data, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(get_user_model().objects.count(), 1)
+
+    def test_weak_password_is_rejected(self):
+        response = self.client.post(
+            self.url, {**self.data, "password": "123"}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(get_user_model().objects.count(), 0)
+
+
+class LoginTests(APITestCase):
+    url = "/api/login/"
+
+    def setUp(self):
+        get_user_model().objects.create_user(
+            username="test@example.com",
+            email="test@example.com",
+            password="BookShop-2026!",
+            first_name="Test User",
+        )
+
+    def test_correct_password_logs_in(self):
+        response = self.client.post(
+            self.url,
+            {"email": "Test@Example.com", "password": "BookShop-2026!"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["full_name"], "Test User")
+        self.assertNotIn("password", response.data)
+
+    def test_wrong_password_is_rejected(self):
+        response = self.client.post(
+            self.url,
+            {"email": "test@example.com", "password": "wrong-password"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 401)

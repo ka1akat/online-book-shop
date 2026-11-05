@@ -4,13 +4,19 @@
     Online Book Shop
   </a>
   <nav>
-    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Каталог</a>
+    <a routerLink="/catalog" routerLinkActive="active">Catalog</a>
     <a routerLink="/cart" routerLinkActive="active" class="cart-link">
-      Корзина
+      Cart
       @if (cart.count() > 0) {
         <span class="cart-count">{{ cart.count() }}</span>
       }
     </a>
+    @if (auth.user(); as user) {
+      <span class="nav-user">{{ user.full_name }}</span>
+      <button class="nav-logout" type="button" (click)="auth.logout()">Log out</button>
+    } @else {
+      <a routerLink="/login" routerLinkActive="active">Log in</a>
+    }
   </nav>
 </header>
 
@@ -18,4 +24,4 @@
   <router-outlet />
 </main>
 
-<footer class="footer muted small">KBTU · Online Shop Team · учебный проект</footer>
+<footer class="footer muted small">KBTU · Online Shop Team · student project</footer>

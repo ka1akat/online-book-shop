@@ -1,12 +1,12 @@
 <section class="page">
   <header class="page-head">
-    <h1>Корзина</h1>
+    <h1>Cart</h1>
   </header>
 
   @if (cart.lines().length === 0) {
     <div class="empty">
-      <p>Корзина пуста.</p>
-      <a class="btn" routerLink="/">Перейти в каталог</a>
+      <p>Your cart is empty.</p>
+      <a class="btn" routerLink="/catalog">Go to catalog</a>
     </div>
   } @else {
     <div class="two-col">
@@ -18,28 +18,28 @@
               <div class="muted small">{{ line.product.author }} · {{ line.product.product_id }}</div>
             </div>
             <div class="qty">
-              <button class="icon-btn" (click)="change(line, -1)" aria-label="Меньше">−</button>
+              <button class="icon-btn" (click)="change(line, -1)" aria-label="Decrease">−</button>
               <span>{{ line.quantity }}</span>
               <button
                 class="icon-btn"
                 (click)="change(line, 1)"
                 [disabled]="line.quantity >= line.product.available"
-                aria-label="Больше"
+                aria-label="Increase"
               >+</button>
             </div>
             <span class="line-sum">{{ +line.product.price * line.quantity | number: '1.0-0' }} ₸</span>
           </div>
         }
         <div class="line line-total">
-          <strong>Итого</strong>
+          <strong>Total</strong>
           <strong>{{ cart.total() | number: '1.0-0' }} ₸</strong>
         </div>
       </div>
 
       <form class="panel form" #f="ngForm" (ngSubmit)="checkout()">
-        <h2>Покупатель</h2>
+        <h2>Customer</h2>
         <label>
-          Имя и фамилия
+          Full name
           <input name="full_name" [(ngModel)]="customer.full_name" required maxlength="100" />
         </label>
         <label>
@@ -47,7 +47,7 @@
           <input name="email" type="email" [(ngModel)]="customer.email" required email maxlength="100" />
         </label>
         <label>
-          Телефон
+          Phone
           <input name="phone" [(ngModel)]="customer.phone" maxlength="20" placeholder="+7 701 111 22 33" />
         </label>
 
@@ -56,9 +56,9 @@
         }
 
         <button class="btn btn-wide" type="submit" [disabled]="f.invalid || sending()">
-          {{ sending() ? 'Оформляем…' : 'Оформить заказ' }}
+          {{ sending() ? 'Placing order…' : 'Place order' }}
         </button>
-        <p class="muted small">После оформления книги бронируются за вами на 15 минут.</p>
+        <p class="muted small">Your books are reserved for 15 minutes after you place the order.</p>
       </form>
     </div>
   }
