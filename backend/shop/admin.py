@@ -1,42 +1,56 @@
-
 from django.contrib import admin
 
-from .models import Customer, Order, OrderItem, Payment, Product, StockLog
+from .models import Customer, Employee, Order, OrderItem, Payment, Product, StockLog
+from .permissions import RoleAdminMixin
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(RoleAdminMixin, admin.ModelAdmin):
+    edit_roles = ["warehouse"]
+    view_roles = ["finance"]
     list_display = ["product_id", "product_name", "author", "genre", "price", "stock_quantity"]
     list_editable = ["stock_quantity"]
 
 
 @admin.register(Customer)
-class CustomerAdmin(admin.ModelAdmin):
+class CustomerAdmin(RoleAdminMixin, admin.ModelAdmin):
+    view_roles = ["finance"]
     list_display = ["customer_id", "full_name", "email", "phone", "registered_at"]
 
 
-class OrderItemInline(admin.TabularInline):
+class OrderItemInline(RoleAdminMixin, admin.TabularInline):
     model = OrderItem
     extra = 0
+    view_roles = ["finance", "warehouse"]
 
 
-class PaymentInline(admin.TabularInline):
+class PaymentInline(RoleAdminMixin, admin.TabularInline):
     model = Payment
     extra = 0
+    view_roles = ["finance"]   # склад платежи не видит
 
 
 @admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(RoleAdminMixin, admin.ModelAdmin):
+    edit_roles = ["finance"]
+    view_roles = ["warehouse"]
     list_display = ["order_id", "customer", "status", "order_date", "reserved_until"]
     list_filter = ["status"]
     inlines = [OrderItemInline, PaymentInline]
 
 
 @admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
+class PaymentAdmin(RoleAdminMixin, admin.ModelAdmin):
+    view_roles = ["finance"]
     list_display = ["payment_id", "order", "transaction_id", "amount", "status", "paid_at"]
 
 
 @admin.register(StockLog)
-class StockLogAdmin(admin.ModelAdmin):
+class StockLogAdmin(RoleAdminMixin, admin.ModelAdmin):
+    view_roles = ["warehouse"]   # лог только читается
     list_display = ["log_id", "product", "changed_by", "change_amount", "reason", "changed_at"]
+
+
+@admin.register(Employee)
+class EmployeeAdmin(RoleAdminMixin, admin.ModelAdmin):
+    list_display = ["user", "role"]   # роли пустые, значит видит только admin

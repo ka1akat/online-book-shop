@@ -6,6 +6,8 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from .models import Customer, Order, Payment, Product, StockLog
+from django.contrib.auth import get_user_model
+from .models import Employee
 
 GOOD_CARD = "4111 1111 1111 1111"
 BAD_CARD = "4111 1111 1111 0000"  # банк отклоняет
@@ -73,3 +75,21 @@ class ShopFlowTests(APITestCase):
         self.make_order()
         with self.assertRaises(ProtectedError):  # ON DELETE RESTRICT
             Customer.objects.get().delete()
+    
+   
+class RoleAccessTests(APITestCase):
+    def login_as(self, role):
+        user = get_user_model().objects.create_user(role, password="x", is_staff=True)
+        Employee.objects.create(user=user, role=role)
+        self.client.force_login(user)
+
+    def test_anonymous_cannot_see_low_stock(self):
+        self.assertEqual(self.client.get("/api/products/low-stock/").status_code, 403)
+
+    def test_warehouse_can_see_low_stock(self):
+        self.login_as("warehouse")
+        self.assertEqual(self.client.get("/api/products/low-stock/").status_code, 200)
+
+    def test_finance_cannot_see_low_stock(self):
+        self.login_as("finance")
+        self.assertEqual(self.client.get("/api/products/low-stock/").status_code, 403)
