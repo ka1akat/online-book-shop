@@ -2,7 +2,13 @@ from django.db import models
 from django.conf import settings
 
 class Employee(models.Model):
-    ROLES = [("warehouse", "Warehouse"), ("finance", "Finance"), ("admin", "Admin")]
+    ROLES = [
+        ("warehouse", "Warehouse"),
+        ("finance", "Finance"),
+        ("support", "Support"),
+        ("manager", "Manager"),
+        ("admin", "Admin"),
+    ]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     role = models.CharField(max_length=20, choices=ROLES)
 

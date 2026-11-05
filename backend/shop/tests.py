@@ -90,6 +90,23 @@ class RoleAccessTests(APITestCase):
         self.login_as("warehouse")
         self.assertEqual(self.client.get("/api/products/low-stock/").status_code, 200)
 
+    def test_manager_can_see_low_stock(self):
+        self.login_as("manager")
+        self.assertEqual(self.client.get("/api/products/low-stock/").status_code, 200)
+
     def test_finance_cannot_see_low_stock(self):
         self.login_as("finance")
         self.assertEqual(self.client.get("/api/products/low-stock/").status_code, 403)
+
+    def test_support_cannot_see_low_stock(self):
+        self.login_as("support")
+        self.assertEqual(self.client.get("/api/products/low-stock/").status_code, 403)
+
+    def test_manager_is_read_only_in_admin(self):
+        self.login_as("manager")
+        self.assertEqual(self.client.get("/admin/shop/product/").status_code, 200)
+        self.assertEqual(self.client.get("/admin/shop/product/add/").status_code, 403)
+
+    def test_support_cannot_open_payments_in_admin(self):
+        self.login_as("support")
+        self.assertEqual(self.client.get("/admin/shop/payment/").status_code, 403)

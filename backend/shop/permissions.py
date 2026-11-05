@@ -43,3 +43,6 @@ class HasRole(BasePermission):
 
 class IsWarehouse(HasRole):
     allowed_roles = ["warehouse"]
+    
+class IsWarehouseOrManager(HasRole):
+    allowed_roles = ["warehouse", "manager"]

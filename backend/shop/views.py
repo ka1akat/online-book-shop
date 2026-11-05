@@ -9,11 +9,11 @@ from .serializers import (
 )
 from .services import ShopError, create_order, expire_reservations, pay_order
 from rest_framework.authentication import SessionAuthentication
-from .permissions import IsWarehouse
+from .permissions import IsWarehouseOrManager
 
 class LowStockView(ListAPIView):
     authentication_classes = [SessionAuthentication]
-    permission_classes = [IsWarehouse]
+    permission_classes = [IsWarehouseOrManager]
     serializer_class = ProductSerializer
 
 class ProductListView(ListAPIView):
