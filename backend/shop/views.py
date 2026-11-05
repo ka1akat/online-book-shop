@@ -12,9 +12,15 @@ from rest_framework.authentication import SessionAuthentication
 from .permissions import IsWarehouseOrManager
 
 class LowStockView(ListAPIView):
+    """SELECT ... FROM products WHERE stock_quantity < 10 ORDER BY stock_quantity;"""
+
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsWarehouseOrManager]
     serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        return Product.objects.filter(stock_quantity__lt=10).order_by("stock_quantity")
+
 
 class ProductListView(ListAPIView):
     serializer_class = ProductSerializer
@@ -22,17 +28,7 @@ class ProductListView(ListAPIView):
     def get_queryset(self):
         expire_reservations()
         return Product.objects.order_by("product_id")
-
-
-class LowStockView(ListAPIView):
-    """SELECT ... FROM products WHERE stock_quantity < 10 ORDER BY stock_quantity;"""
-
-    serializer_class = ProductSerializer
-
-    def get_queryset(self):
-        return Product.objects.filter(stock_quantity__lt=10).order_by("stock_quantity")
-
-
+    
 class OrderDetailView(RetrieveAPIView):
     serializer_class = OrderSerializer
 
