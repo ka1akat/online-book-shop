@@ -31,7 +31,6 @@
 | FR-03 | A book with stock 0 is shown with the label "Out of stock" | Product list shows the label; "Add to cart" button is disabled |
 
 ### New in v2
-
 | ID | Requirement | Owner (team) | Acceptance criteria (how we will check it) |
 |----|-------------|--------------|-------------------------------------------|
 | **FR-04** | Every book belongs to exactly one category from the CATEGORIES table; the main page allows filtering books by category | Karakat (frontend), Sabina (DB) | 1) A product cannot be saved with an empty or non-existent `category_id` (FK + NOT NULL). 2) Main page shows the list of categories from the table, not a hard-coded list. 3) Choosing "Fantasy" shows only books with that `category_id`. 4) Renaming a category changes it for all its books (1 UPDATE). |
@@ -85,5 +84,4 @@
 ---
 
 ## 6. Next measurable task (Aidana, by 13.11.2026)
-
 Write and run **5 acceptance test scenarios** for the main process (register → add to cart → pay → stock −1; out-of-stock case; expired reservation; wrong category; address missing) and record pass/fail for each in `docs/acceptance_tests.md`.
