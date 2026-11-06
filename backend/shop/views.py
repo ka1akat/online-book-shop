@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.db import transaction
 from rest_framework import status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -6,8 +7,8 @@ from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIV
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Order, Product
-from .permissions import IsWarehouseOrManager
+from .models import Employee, Order, Product, StockLog
+from .permissions import IsWarehouse, IsWarehouseOrManager
 from .serializers import (
     CreateOrderSerializer, LoginSerializer, OrderSerializer, PayOrderSerializer,
     ProductSerializer, RegisterSerializer,
@@ -32,12 +33,26 @@ class ProductListView(ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method == "POST":
-            return [IsWarehouseOrManager()]
+            # создавать книги (то есть менять склад) может только склад и admin
+            return [IsWarehouse()]
         return [AllowAny()]
 
     def get_queryset(self):
         expire_reservations()
         return Product.objects.order_by("product_id")
+
+    def perform_create(self, serializer):
+        # Новая книга с остатком = поставка: пишем её в STOCK_LOG с логином сотрудника
+        with transaction.atomic():
+            product = serializer.save()
+            if product.stock_quantity > 0:
+                StockLog.objects.create(
+                    product=product,
+                    changed_by=self.request.user.username,
+                    employee=Employee.objects.filter(user=self.request.user).first(),
+                    change_amount=product.stock_quantity,
+                    reason="delivery",
+                )
 
 
 class OrderDetailView(RetrieveAPIView):

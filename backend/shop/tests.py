@@ -110,6 +110,25 @@ class RoleAccessTests(APITestCase):
         self.login_as("support")
         self.assertEqual(self.client.get("/admin/shop/payment/").status_code, 403)
 
+    def test_warehouse_cannot_open_orders_in_admin(self):
+        self.login_as("warehouse")
+        self.assertEqual(self.client.get("/admin/shop/order/").status_code, 403)
+
+    def test_warehouse_stock_edit_is_logged_with_login_and_employee(self):
+        Product.objects.create(
+            product_id="P-1004", product_name="1984", author="George Orwell",
+            genre="Dystopia", price=5000, stock_quantity=2,
+        )
+        self.login_as("warehouse")
+        r = self.client.post("/admin/shop/product/P-1004/change/", {
+            "product_id": "P-1004", "product_name": "1984", "author": "George Orwell",
+            "genre": "Dystopia", "price": "5000.00", "stock_quantity": 12,
+        })
+        self.assertEqual(r.status_code, 302)
+        log = StockLog.objects.get()
+        self.assertEqual((log.changed_by, log.change_amount, log.reason), ("warehouse", 10, "delivery"))
+        self.assertEqual(log.employee.user.username, "warehouse")
+
 
 class RegisterTests(APITestCase):
     url = "/api/register/"

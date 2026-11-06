@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db import transaction
 
 from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, StockLog, StockRequest
 from .permissions import RoleAdminMixin
@@ -10,6 +11,24 @@ class ProductAdmin(RoleAdminMixin, admin.ModelAdmin):
     view_roles = ["finance", "manager"]
     list_display = ["product_id", "product_name", "author", "category", "genre", "price", "stock_quantity"]
     list_editable = ["stock_quantity"]
+
+    def save_model(self, request, obj, form, change):
+        # Каждое изменение склада сотрудником пишется в STOCK_LOG с его личным логином.
+        # Склад и лог сохраняются в одной транзакции: либо оба, либо ни одного.
+        old_stock = None
+        if change and "stock_quantity" in form.changed_data:
+            old_stock = Product.objects.get(pk=obj.pk).stock_quantity
+        with transaction.atomic():
+            super().save_model(request, obj, form, change)
+            if old_stock is not None and obj.stock_quantity != old_stock:
+                diff = obj.stock_quantity - old_stock
+                StockLog.objects.create(
+                    product=obj,
+                    changed_by=request.user.username,
+                    employee=Employee.objects.filter(user=request.user).first(),
+                    change_amount=diff,
+                    reason="delivery" if diff > 0 else "correction",
+                )
 
 
 @admin.register(Customer)
@@ -35,7 +54,8 @@ class AddressAdmin(RoleAdminMixin, admin.ModelAdmin):
 class OrderItemInline(RoleAdminMixin, admin.TabularInline):
     model = OrderItem
     extra = 0
-    view_roles = ["finance", "warehouse", "manager", "support"]
+    # склад здесь больше не видит заказы, поэтому его нет в списке
+    view_roles = ["finance", "manager", "support"]
 
 
 class PaymentInline(RoleAdminMixin, admin.TabularInline):
@@ -47,7 +67,8 @@ class PaymentInline(RoleAdminMixin, admin.TabularInline):
 @admin.register(Order)
 class OrderAdmin(RoleAdminMixin, admin.ModelAdmin):
     edit_roles = ["finance", "support"]
-    view_roles = ["warehouse", "manager"]
+    # склад убран: в заказах видны имя, email и адрес покупателя (чувствительные данные)
+    view_roles = ["manager"]
     list_display = ["order_id", "customer", "address", "status", "order_date", "reserved_until"]
     list_filter = ["status"]
     inlines = [OrderItemInline, PaymentInline]
@@ -75,3 +96,5 @@ class StockRequestAdmin(RoleAdminMixin, admin.ModelAdmin):
 @admin.register(Employee)
 class EmployeeAdmin(RoleAdminMixin, admin.ModelAdmin):
     list_display = ["employee_id", "login", "full_name", "role", "is_active"]
+    # эти поля Employee.save() заполняет сам из пользователя, руками их менять не нужно
+    readonly_fields = ["login", "full_name", "password_hash", "is_active"]
