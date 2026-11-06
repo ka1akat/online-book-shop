@@ -84,7 +84,7 @@ Principle: each role sees only the data it needs. Customer contact data (name, p
 | Prototype (localhost:4200) is not yet connected to PostgreSQL | No end-to-end demo | Connect Django to DB, replace fixed book list with PRODUCTS | Karakat, Sabina | 10.11 |
 | Race condition test (2 payments for the last book) not done | Core problem of the project not proven | Write test with 2 parallel transactions | Ayaulym | 10.11 |
 | ERD v2 not yet reflected in Django models | Code and model diverge again | Sabina migrates models from `docs/erd_v2.sql` | Sabina | 10.11 |
-| Roles work only in Django admin and 2 API endpoints; website login does not create a session | "Customer sees only own data" and staff login on the website cannot be enforced yet | Add session or token login together with the frontend | Moldyr | 10.11 |
+| Roles work only in Django admin and 2 API endpoints; website login does not create a session | "Customer sees only own data" and staff login on the website cannot be enforced yet | Add session or token login together with the frontend | Moldyr, Karakat | 10.11 |
 | Refund by finance is not implemented | Requirement "finance: read, refund" is only half done | Admin action: payment `refunded`, order `cancelled`, stock returned, STOCK_LOG row, one transaction (task 6.2) | Moldyr | 10.11 |
 ---
 
