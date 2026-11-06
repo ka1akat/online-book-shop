@@ -8,7 +8,7 @@ def copy_employee_details(apps, schema_editor):
     for employee in Employee.objects.select_related("user"):
         user = employee.user
         employee.login = user.username
-        employee.full_name = user.get_full_name() or user.username
+        employee.full_name = f"{user.first_name} {user.last_name}".strip() or user.username
         employee.password_hash = user.password
         employee.is_active = user.is_active
         employee.save(update_fields=["login", "full_name", "password_hash", "is_active"])

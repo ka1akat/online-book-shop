@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
 from django.db import transaction
 
 from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, StockLog, StockRequest
@@ -98,3 +100,23 @@ class EmployeeAdmin(RoleAdminMixin, admin.ModelAdmin):
     list_display = ["employee_id", "login", "full_name", "role", "is_active"]
     # эти поля Employee.save() заполняет сам из пользователя, руками их менять не нужно
     readonly_fields = ["login", "full_name", "password_hash", "is_active"]
+
+
+# --- Страница пользователя: роль выбирается здесь же ---
+
+class EmployeeInline(admin.StackedInline):
+    model = Employee
+    fields = ["role"]
+    extra = 1
+    max_num = 1
+    can_delete = False
+
+
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    # Обычная страница пользователя + блок Employee с выбором роли.
+    # После сохранения разрешения роли появляются в окне «User permissions».
+    inlines = [EmployeeInline]

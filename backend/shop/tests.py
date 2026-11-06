@@ -129,6 +129,12 @@ class RoleAccessTests(APITestCase):
         self.assertEqual((log.changed_by, log.change_amount, log.reason), ("warehouse", 10, "delivery"))
         self.assertEqual(log.employee.user.username, "warehouse")
 
+    def test_role_fills_user_permissions(self):
+        self.login_as("warehouse")
+        user = get_user_model().objects.get(username="warehouse")
+        self.assertTrue(user.user_permissions.filter(codename="change_product").exists())
+        self.assertFalse(user.user_permissions.filter(codename="view_payment").exists())
+
 
 class RegisterTests(APITestCase):
     url = "/api/register/"

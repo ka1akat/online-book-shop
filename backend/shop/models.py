@@ -19,15 +19,22 @@ class Employee(models.Model):
 
     def save(self, *args, **kwargs):
         if self.user_id:
+            # сотрудник с ролью автоматически получает доступ в админку
+            if not self.user.is_staff:
+                self.user.is_staff = True
+                self.user.save(update_fields=["is_staff"])
             self.login = self.user.get_username()
             self.full_name = self.user.get_full_name() or self.user.get_username()
             self.password_hash = self.user.password
             self.is_active = self.user.is_active
         super().save(*args, **kwargs)
+        if self.user_id and self.role:
+            # разрешения Django подбираются по роли
+            from .permissions import permissions_for_role
+            self.user.user_permissions.set(permissions_for_role(self.role))
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"
-
 class Customer(models.Model):
     """CUSTOMERS — кто покупает."""
 
