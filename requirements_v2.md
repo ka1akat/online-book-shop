@@ -88,10 +88,8 @@ Principle: each role sees only the data it needs. Customer contact data (name, p
 | Refund by finance is not implemented | Requirement "finance: read, refund" is only half done | Admin action: payment `refunded`, order `cancelled`, stock returned, STOCK_LOG row, one transaction (task 6.2) | Moldyr | 10.11 |
 ---
 
-## 6. Next measurable task 
-### 6.1 Aidana, by 13.11.2026
+## 6. Next measurable task Aidana, by 13.11.2026
 Write and run **5 acceptance test scenarios** for the main process (register → add to cart → pay → stock −1; out-of-stock case; expired reservation; wrong category; address missing) and record pass/fail for each in `docs/acceptance_tests.md`.
 
-### 6.2 Moldyr (security), by 13.11.2026
-Implement **refund of a payment by the finance team** as one database transaction, and test it.
+
 
