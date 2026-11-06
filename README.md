@@ -169,7 +169,6 @@ python manage.py runserver
 Тесты ролей: `python manage.py test shop`.
 
 ## Что ещё не сделано
-
 - Регистрация и вход покупателя (сейчас покупатель определяется по email).
 - Страница для Inventory Manager (пока — Django admin).
 - Таблицы ADDRESSES и CATEGORIES (план из Task 9).
