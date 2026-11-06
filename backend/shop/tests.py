@@ -134,6 +134,11 @@ class RoleAccessTests(APITestCase):
         user = get_user_model().objects.get(username="warehouse")
         self.assertTrue(user.user_permissions.filter(codename="change_product").exists())
         self.assertFalse(user.user_permissions.filter(codename="view_payment").exists())
+    def test_customer_cannot_open_admin(self):
+        user = get_user_model().objects.create_user("buyer@example.com", password="x")
+        self.client.force_login(user)
+        r = self.client.get("/admin/")
+        self.assertEqual(r.status_code, 302)  # не сотрудник: отправляют на вход в админку
 
 
 class RegisterTests(APITestCase):

@@ -159,6 +159,15 @@ python manage.py runserver
 | `UPDATE … WHERE stock_quantity >= 1` | `Product.objects.filter(stock_quantity__gte=…).update(…)` |
 | SELECT книг, которых меньше 10 | `/api/products/low-stock/` (`LowStockView` в `views.py`) |
 
+## Роли и доступ сотрудников
+Сотрудник = пользователь Django + запись в Employee с ролью
+(warehouse, finance, support, manager, admin). Права определяет роль
+(`shop/permissions.py`); покупатели в админку не заходят.
+
+Создать сотрудника: `/admin/` → Users → Add user → блок Employee → Role.
+Правки склада сотрудником пишутся в STOCK_LOG с его логином.
+Тесты ролей: `python manage.py test shop`.
+
 ## Что ещё не сделано
 
 - Регистрация и вход покупателя (сейчас покупатель определяется по email).
