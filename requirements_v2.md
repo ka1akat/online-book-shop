@@ -36,7 +36,7 @@
 |----|-------------|--------------|-------------------------------------------|
 | **FR-04** | Every book belongs to exactly one category from the CATEGORIES table; the main page allows filtering books by category | Karakat (frontend), Sabina (DB) | 1) A product cannot be saved with an empty or non-existent `category_id` (FK + NOT NULL). 2) Main page shows the list of categories from the table, not a hard-coded list. 3) Choosing "Fantasy" shows only books with that `category_id`. 4) Renaming a category changes it for all its books (1 UPDATE). |
 | **FR-05** | At checkout the customer chooses a delivery address from their saved addresses or adds a new one; the order stores `address_id` | Karakat (frontend), Sabina (DB) | 1) A customer can have 0..N addresses; one may be `is_default = true`. 2) An order cannot be paid without an `address_id`. 3) An address can only be chosen by its owner (`ADDRESSES.customer_id = ORDERS.customer_id`). 4) Deleting an address used in an order is rejected (ON DELETE RESTRICT). |
-| **FR-06** | Only employees with role `warehouse` (and `admin`) may change stock; every change is written to STOCK_LOG with the employee's login and `employee_id`. Every other role sees only the data it needs for its work. | Moldyr (security), Sabina (DB) | 1) EMPLOYEES has roles: `warehouse`, `finance`, `support`, `manager`, `admin`. 2) Stock changes (Products in Django admin, `POST /api/products/`) are allowed only for `warehouse` and `admin`; other roles are read-only or get HTTP 403. 3) `/api/products/low-stock/` returns 403 for anonymous users, `finance` and `support`. 4) `warehouse` cannot open Customers, Orders or Payments (HTTP 403). 5) Each employee stock edit writes a STOCK_LOG row with `changed_by` = login, `employee_id` and `reason` = `delivery` or `correction`; automatic sale rows have `employee_id = NULL` and `changed_by = 'payment-system'`. 6) A customer account (no Staff status, no Employee record) cannot open `/admin/`. 7) Roles are covered by automated tests (`python manage.py test shop`). |
+| **FR-06** | Only employees with role `inventory_manager` or `warehouse` may change stock; every change is written to STOCK_LOG with the `employee_id` | Moldyr (security), Sabina (DB) | 1) EMPLOYEES has roles: `admin`, `inventory_manager`, `warehouse`, `finance`. 2) A `finance` user cannot open the stock page (HTTP 403 in Django). 3) Every STOCK_LOG row has an `employee_id` or `NULL` only when `reason = 'sale'` (automatic). 4) Customer accounts never see the admin pages. |
 | **FR-07** | When a book is out of stock, the customer can press "Notify me"; the system saves the request in STOCK_REQUESTS | Karakat (frontend), Aidana (requirement + report) | 1) Button appears only when `stock_quantity = 0`. 2) One customer can request one book only once (UNIQUE customer_id + product_id). 3) Report R-02 returns the number of requests per book. 4) (Later) when stock becomes > 0, `notified` is set to true. |
 | **FR-08** | An unpaid order is cancelled automatically when `reserved_until` passes; the reserved quantity returns to stock | Ayaulym (reservation logic) | 1) A job runs every minute. 2) Order with status `reserved` and `reserved_until < now()` becomes `cancelled`. 3) STOCK_LOG gets a row `+quantity`, `reason = 'reservation_expired'`. 4) A paid order is never cancelled by the job. |
 
@@ -64,16 +64,13 @@
 
 ## 4. User roles and access (summary for the ERD)
 
-| Role | Can see | Can change |
-|------|---------|------------|
-| Customer (website only) | catalog, own order page | create order, pay (public API; no login session yet) |
-| warehouse | Products, Categories, STOCK_LOG, stock requests, low-stock report | products and categories, stock requests (every stock edit is logged) |
-| finance | Customers, Addresses, Orders, Payments, Products | orders (refund: planned, see 6.2) |
-| support | Customers, Addresses, Orders, stock requests | addresses, orders, stock requests |
-| manager | almost everything (overview) | categories, addresses, stock requests |
-| admin | everything | everything, user and role management |
-
-Principle: each role sees only the data it needs. Customer contact data (name, phone, email, address) and payments are hidden from `warehouse`.
+| Role | Table | Can do |
+|------|-------|--------|
+| Customer (website only) | PRODUCTS, CATEGORIES | read |
+| Customer | own CUSTOMERS, ADDRESSES, ORDERS, STOCK_REQUESTS | read / create own rows |
+| Inventory manager, warehouse | PRODUCTS.stock_quantity, STOCK_LOG | update stock (logged) |
+| Finance | PAYMENTS | read, refund |
+| Admin | all | all, user management |
 
 ---
 
@@ -84,12 +81,9 @@ Principle: each role sees only the data it needs. Customer contact data (name, p
 | Prototype (localhost:4200) is not yet connected to PostgreSQL | No end-to-end demo | Connect Django to DB, replace fixed book list with PRODUCTS | Karakat, Sabina | 10.11 |
 | Race condition test (2 payments for the last book) not done | Core problem of the project not proven | Write test with 2 parallel transactions | Ayaulym | 10.11 |
 | ERD v2 not yet reflected in Django models | Code and model diverge again | Sabina migrates models from `docs/erd_v2.sql` | Sabina | 10.11 |
-| Roles work only in Django admin and 2 API endpoints; website login does not create a session | "Customer sees only own data" and staff login on the website cannot be enforced yet | Add session or token login together with the frontend | Moldyr, Karakat | 10.11 |
-| Refund by finance is not implemented | Requirement "finance: read, refund" is only half done | Admin action: payment `refunded`, order `cancelled`, stock returned, STOCK_LOG row, one transaction (task 6.2) | Moldyr | 10.11 |
+
 ---
 
-## 6. Next measurable task Aidana, by 13.11.2026
+## 6. Next measurable task (Aidana, by 13.11.2026)
+
 Write and run **5 acceptance test scenarios** for the main process (register → add to cart → pay → stock −1; out-of-stock case; expired reservation; wrong category; address missing) and record pass/fail for each in `docs/acceptance_tests.md`.
-
-
-
