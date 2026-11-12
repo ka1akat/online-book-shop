@@ -164,6 +164,10 @@ class Payment(models.Model):
         SUCCESS = "success"
         FAILED = "failed"
         REFUNDED = "refunded"
+    class RefundReason(models.TextChoices):
+        CHANGED_MIND = "changed_mind", "Customer changed mind"
+        DEFECTIVE = "defective", "Defective item"
+        OTHER = "other", "Other"
 
     payment_id = models.AutoField(primary_key=True)
     order = models.ForeignKey(
@@ -173,6 +177,9 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=10, choices=Status.choices)
     paid_at = models.DateTimeField(auto_now_add=True)
+    
+    refund_reason = models.CharField(max_length=20, choices=RefundReason.choices, blank=True)
+    refunded_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "payments"
