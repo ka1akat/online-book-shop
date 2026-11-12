@@ -1,5 +1,5 @@
 from datetime import timedelta
-
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from .models import Customer, Employee, Order, Payment, Product, StockLog
+from .services import ShopError, refund_payment
 
 GOOD_CARD = "4111 1111 1111 1111"
 BAD_CARD = "4111 1111 1111 0000"  # банк отклоняет
@@ -200,3 +201,92 @@ class LoginTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 401)
+class RefundTests(APITestCase):
+    def setUp(self):
+        self.book = Product.objects.create(
+            product_id="P-1004", product_name="1984", author="George Orwell",
+            genre="Dystopia", price=5000, stock_quantity=2,
+        )
+        self.order_id = self.make_order()
+        self.client.post(f"/api/orders/{self.order_id}/pay/", {"card_number": GOOD_CARD}, format="json")
+        self.payment = Payment.objects.get(order_id=self.order_id, status="success")
+        # после оплаты на складе 1 штука
+
+    def make_order(self, email="aidar@example.com"):
+        r = self.client.post("/api/orders/", {
+            "customer": {"full_name": "Aidar Nurlanov", "email": email, "phone": "+77011112233"},
+            "items": [{"product_id": "P-1004", "quantity": 1}],
+        }, format="json")
+        return r.data["order_id"]
+
+    def login_as(self, role):
+        user = get_user_model().objects.create_user(role, password="x", is_staff=True)
+        Employee.objects.create(user=user, role=role)
+        self.client.force_login(user)
+
+    def refund_in_admin(self, action="refund_defective"):
+        return self.client.post("/admin/shop/payment/", {
+            "action": action, "_selected_action": [self.payment.pk], "index": 0,
+        })
+
+    def test_refund_of_paid_order_runs_whole_transaction(self):
+        refund_payment(self.payment.pk, changed_by="finance")
+        self.payment.refresh_from_db()
+        self.book.refresh_from_db()
+        self.assertEqual(self.payment.status, "refunded")
+        self.assertEqual(Order.objects.get(pk=self.order_id).status, "cancelled")
+        self.assertEqual(self.book.stock_quantity, 2)  # книга вернулась на склад
+        log = StockLog.objects.get(reason="refund")
+        self.assertEqual((log.change_amount, log.changed_by), (1, "finance"))
+
+    def test_failed_payment_cannot_be_refunded(self):
+        order_id = self.make_order(email="dana@example.com")
+        self.client.post(f"/api/orders/{order_id}/pay/", {"card_number": BAD_CARD}, format="json")
+        failed = Payment.objects.get(status="failed")
+        with self.assertRaises(ShopError):
+            refund_payment(failed.pk)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock_quantity, 1)  # склад не тронут
+
+    def test_cannot_refund_twice(self):
+        refund_payment(self.payment.pk)
+        with self.assertRaises(ShopError):
+            refund_payment(self.payment.pk)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock_quantity, 2)  # не 3: второй возврат не прошёл
+
+    def test_refund_rolls_back_if_a_step_fails(self):
+        with patch("shop.services.StockLog") as fake_log:
+            fake_log.objects.create.side_effect = RuntimeError("boom")
+            with self.assertRaises(RuntimeError):
+                refund_payment(self.payment.pk)
+        self.payment.refresh_from_db()
+        self.book.refresh_from_db()
+        self.assertEqual(self.payment.status, "success")  # ROLLBACK: ничего не сохранилось
+        self.assertEqual(self.book.stock_quantity, 1)
+
+    def test_refund_saves_reason_and_time(self):
+        refund_payment(self.payment.pk, reason="changed_mind")
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.refund_reason, "changed_mind")
+        self.assertIsNotNone(self.payment.refunded_at)
+
+    def test_unknown_reason_is_rejected(self):
+        with self.assertRaises(ShopError):
+            refund_payment(self.payment.pk, reason="because")
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, "success")
+
+    def test_finance_can_refund_in_admin(self):
+        self.login_as("finance")
+        self.assertEqual(self.refund_in_admin().status_code, 302)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, "refunded")
+        self.assertEqual(self.payment.refund_reason, "defective")
+
+    def test_warehouse_and_support_cannot_refund_in_admin(self):
+        for role in ("warehouse", "support"):
+            self.login_as(role)
+            self.assertEqual(self.refund_in_admin().status_code, 403)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, "success")

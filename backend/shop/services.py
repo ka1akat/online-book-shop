@@ -174,3 +174,50 @@ def pay_order(order_id, card_number):
         raise ShopError("Банк отклонил оплату: недостаточно средств. Попробуйте другую карту.", 402)
 
     return order
+
+@transaction.atomic
+def refund_payment(payment_id, employee=None, changed_by="finance", reason="other"):
+    """
+    Возврат платежа одной транзакцией:
+    платёж -> refunded (с причиной и временем), заказ -> cancelled,
+    книги возвращаются на склад, строка в STOCK_LOG.
+    Если любой шаг падает, не сохраняется ничего (ROLLBACK).
+    """
+    if reason not in Payment.RefundReason.values:
+        raise ShopError("Укажите причину возврата.")
+
+    try:
+        # select_for_update блокирует платёж: два финансиста не вернут один платёж дважды
+        payment = Payment.objects.select_for_update().get(pk=payment_id)
+    except Payment.DoesNotExist:
+        raise ShopError("Платёж не найден.", 404)
+
+    if payment.status == Payment.Status.REFUNDED:
+        raise ShopError("Этот платёж уже возвращён.", 409)
+    if payment.status != Payment.Status.SUCCESS:
+        raise ShopError("Вернуть можно только успешный платёж.", 409)
+
+    order = Order.objects.select_for_update().get(pk=payment.order_id)
+    if order.status != Order.Status.PAID:
+        raise ShopError("Вернуть можно только оплаченный заказ.", 409)
+
+    for item in order.items.select_related("product"):
+        Product.objects.filter(pk=item.product_id).update(
+            stock_quantity=F("stock_quantity") + item.quantity,
+            last_updated=timezone.localdate(),
+        )
+        StockLog.objects.create(
+            product_id=item.product_id,
+            changed_by=changed_by,
+            employee=employee,
+            change_amount=item.quantity,
+            reason="refund",
+        )
+
+    payment.status = Payment.Status.REFUNDED
+    payment.refund_reason = reason
+    payment.refunded_at = timezone.now()
+    payment.save(update_fields=["status", "refund_reason", "refunded_at"])
+    order.status = Order.Status.CANCELLED
+    order.save(update_fields=["status"])
+    return payment
