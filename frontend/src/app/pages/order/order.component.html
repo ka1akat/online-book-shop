@@ -34,6 +34,20 @@
             <span class="line-sum">{{ item.quantity * +item.unit_price | number: '1.0-0' }} ₸</span>
           </div>
         }
+        <div class="line small">
+          <span>Delivery</span>
+          <span>{{ o.delivery_fee | number: '1.0-0' }} ₸</span>
+        </div>
+        @if (o.address; as address) {
+          <p class="muted small">
+            {{ address.city }}, {{ address.full_address }}
+            · {{ address.within_city ? 'inside city limits' : 'outside city limits' }}
+            {{ address.entrance ? '· entrance ' + address.entrance : '' }}
+            {{ address.apartment ? '· apt. ' + address.apartment : '' }}
+            {{ address.floor ? '· floor ' + address.floor : '' }}
+            {{ address.intercom_code ? '· intercom ' + address.intercom_code : '' }}
+          </p>
+        }
         <div class="line line-total">
           <strong>Total</strong>
           <strong>{{ o.total | number: '1.0-0' }} ₸</strong>
@@ -82,7 +96,6 @@
           @case ('paid') {
             <div class="done">
               <h2>Thank you for your purchase!</h2>
-              <p class="muted">Payment complete. The books were removed from stock and recorded in STOCK_LOG.</p>
               <a class="btn" routerLink="/catalog">Back to catalog</a>
             </div>
           }

@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models import F, Sum
 from django.utils import timezone
 
-from .models import Customer, Order, OrderItem, Payment, Product, StockLog
+from .models import Address, Customer, Order, OrderItem, Payment, Product, StockLog
 
 
 class ShopError(Exception):
@@ -41,7 +41,7 @@ def available_quantity(product):
 
 
 @transaction.atomic
-def create_order(customer_data, items):
+def create_order(customer_data, items, delivery_method=Order.DeliveryMethod.DELIVERY, address_data=None):
     """
     Шаг 1 главного действия: покупатель оформляет заказ.
     Книги бронируются на 15 минут, склад пока НЕ уменьшается.
@@ -60,8 +60,21 @@ def create_order(customer_data, items):
         },
     )
 
+    if not address_data:
+        raise ShopError("Укажите адрес доставки.")
+    Address.objects.filter(customer=customer, is_default=True).update(is_default=False)
+    address = Address.objects.create(
+        customer=customer,
+        is_default=True,
+        street=address_data["full_address"],
+        building="",
+        **address_data,
+    )
+
     order = Order.objects.create(
         customer=customer,
+        address=address,
+        delivery_method=delivery_method,
         status=Order.Status.RESERVED,
         reserved_until=timezone.now() + timedelta(minutes=settings.RESERVATION_MINUTES),
     )

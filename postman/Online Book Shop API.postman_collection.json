@@ -1,0 +1,179 @@
+{
+  "info": {
+    "name": "Online Book Shop API",
+    "description": "All current Django REST API operations for the Online Book Shop project. Set the base_url collection variable to your running Django server. Staff requests use Basic Auth credentials for a warehouse employee, manager, or superuser.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Categories and filters",
+      "item": [
+        {
+          "name": "List categories",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/api/categories/" }
+        },
+        {
+          "name": "Filter books by category",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/api/products/?category_id={{category_id}}" }
+        },
+        {
+          "name": "Search books by title or author",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/api/products/?search={{search}}" }
+        }
+      ]
+    },
+    {
+      "name": "Delivery addresses (1,000 KZT inside any city, 1,500 KZT outside)",
+      "item": [
+        {
+          "name": "List customer addresses",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/api/addresses/?email={{customer_email}}" }
+        },
+        {
+          "name": "Save customer address",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{customer_email}}\",\n  \"city\": \"Semey\",\n  \"within_city\": true,\n  \"full_address\": \"Abay Street, building 10\",\n  \"entrance\": \"2\",\n  \"apartment\": \"25\",\n  \"intercom_code\": \"25B\",\n  \"floor\": \"4\",\n  \"is_default\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/api/addresses/"
+          },
+          "description": "A Customer record must already exist. Creating an order creates it; registration alone does not create a Customer row. Set within_city to true for 1,000 KZT inside any city or false for 1,500 KZT outside city limits."
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List all books",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/products/",
+            "description": "Returns the catalog, including category and available stock."
+          }
+        },
+        {
+          "name": "Add a book (staff only)",
+          "request": {
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{staff_username}}", "type": "string" },
+                { "key": "password", "value": "{{staff_password}}", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"P-1006\",\n  \"product_name\": \"Dune\",\n  \"author\": \"Frank Herbert\",\n  \"genre\": \"Science Fiction\",\n  \"category_id\": 1,\n  \"price\": \"6000.00\",\n  \"stock_quantity\": 8\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/products/",
+            "description": "Requires a warehouse or manager employee, or a Django superuser. Change product_id to an unused ID and category_id to an existing category ID."
+          }
+        },
+        {
+          "name": "List low-stock books (staff only)",
+          "request": {
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{staff_username}}", "type": "string" },
+                { "key": "password", "value": "{{staff_password}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/products/low-stock/",
+            "description": "Returns books with fewer than 10 copies in stock."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create an order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+            "raw": "{\n  \"customer\": {\n    \"full_name\": \"Test Customer\",\n    \"email\": \"test@example.com\",\n    \"phone\": \"+77000000000\"\n  },\n  \"delivery_method\": \"delivery\",\n  \"address\": {\n    \"city\": \"Semey\",\n    \"within_city\": true,\n    \"full_address\": \"Abay Street, building 10\",\n    \"entrance\": \"2\",\n    \"apartment\": \"25\",\n    \"intercom_code\": \"25B\",\n    \"floor\": \"4\"\n  },\n  \"items\": [\n    { \"product_id\": \"P-1002\", \"quantity\": 1 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/orders/",
+            "description": "Creates an order and reserves the requested books for 15 minutes."
+          }
+        },
+        {
+          "name": "Get an order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}/",
+            "description": "Set order_id to the ID returned when creating an order."
+          }
+        },
+        {
+          "name": "Pay for an order (test bank)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_number\": \"4111 1111 1111 1111\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/orders/{{order_id}}/pay/",
+            "description": "Test payment only. A card number ending in 0000 is declined."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Register a customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Test Customer\",\n  \"email\": \"new-customer@example.com\",\n  \"password\": \"BookShop-2026!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/register/"
+          }
+        },
+        {
+          "name": "Log in a customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new-customer@example.com\",\n  \"password\": \"BookShop-2026!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/login/",
+            "description": "Checks credentials and returns customer details. This endpoint does not create a persistent login session."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "category_id", "value": "1" },
+    { "key": "search", "value": "Dune" },
+    { "key": "customer_email", "value": "test@example.com" },
+    { "key": "order_id", "value": "1" },
+    { "key": "staff_username", "value": "" },
+    { "key": "staff_password", "value": "" }
+  ]
+}

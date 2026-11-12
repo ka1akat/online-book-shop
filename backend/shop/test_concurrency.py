@@ -11,6 +11,7 @@ from shop.models import Order, OrderItem, Payment, Product, StockLog
 from shop.services import ShopError, create_order, pay_order
 
 GOOD_CARD = "4111111111111111"
+TEST_ADDRESS = {"city": "Semey", "within_city": True, "full_address": "Abay Street 10"}
 
 
 def slow_bank(card_number, amount):
@@ -54,7 +55,7 @@ class ConcurrencyTests(TransactionTestCase):
     def test_double_click_pays_order_only_once(self):
         """Два одновременных нажатия «Оплатить» на один заказ: оплата должна пройти один раз."""
         order = create_order({"full_name": "A", "email": "a@test.kz", "phone": ""},
-                             [{"product_id": "P-1001", "quantity": 1}])
+                             [{"product_id": "P-1001", "quantity": 1}], address_data=TEST_ADDRESS)
         pay = lambda: pay_order(order.order_id, GOOD_CARD)
         with patch("shop.services.fake_bank", side_effect=slow_bank):
             results = run_in_threads([pay, pay])
@@ -69,7 +70,7 @@ class ConcurrencyTests(TransactionTestCase):
         """Два покупателя одновременно бронируют последнюю книгу: бронь получит только один."""
         def buy(email):
             return lambda: create_order({"full_name": email, "email": email, "phone": ""},
-                                        [{"product_id": "P-1002", "quantity": 1}])
+                                        [{"product_id": "P-1002", "quantity": 1}], address_data=TEST_ADDRESS)
 
         results = run_in_threads([buy("a@test.kz"), buy("b@test.kz")])
 

@@ -55,16 +55,22 @@ class Address(models.Model):
     address_id = models.AutoField(primary_key=True)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="addresses")
     city = models.CharField(max_length=100)
-    street = models.CharField(max_length=150)
-    building = models.CharField(max_length=30)
+    full_address = models.CharField(max_length=300, blank=True)
+    street = models.CharField(max_length=150, blank=True, default="")
+    building = models.CharField(max_length=30, blank=True, default="")
     apartment = models.CharField(max_length=30, blank=True)
+    entrance = models.CharField(max_length=30, blank=True)
+    floor = models.CharField(max_length=30, blank=True)
+    intercom_code = models.CharField(max_length=30, blank=True)
+    within_city = models.BooleanField(default=True)
     is_default = models.BooleanField(default=False)
 
     class Meta:
         db_table = "addresses"
 
     def __str__(self):
-        return f"{self.city}, {self.street} {self.building}"
+        address = self.full_address or f"{self.street} {self.building}".strip()
+        return f"{self.city}, {address}"
 
 
 class Category(models.Model):
@@ -114,12 +120,19 @@ class Order(models.Model):
         PAID = "paid"  # оплачен, склад уменьшен
         CANCELLED = "cancelled"  # бронь истекла или заказ отменён
 
+    class DeliveryMethod(models.TextChoices):
+        DELIVERY = "delivery", "Delivery"
+
+    DELIVERY_FEE_IN_CITY = 1000
+    DELIVERY_FEE_OUTSIDE_CITY = 1500
+
     order_id = models.AutoField(primary_key=True)
     # FK -> CUSTOMERS. PROTECT = ON DELETE RESTRICT: нельзя удалить покупателя, у которого есть заказы
     customer = models.ForeignKey(
         Customer, on_delete=models.PROTECT, db_column="customer_id", related_name="orders"
     )
     address = models.ForeignKey("Address", on_delete=models.PROTECT, null=True, blank=True, db_column="address_id", related_name="orders")
+    delivery_method = models.CharField(max_length=10, choices=DeliveryMethod.choices, default=DeliveryMethod.DELIVERY)
     order_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.RESERVED)
     reserved_until = models.DateTimeField()  # время заказа + 15 минут (BR-01)
@@ -132,7 +145,16 @@ class Order(models.Model):
 
     @property
     def total(self):
-        return sum(item.quantity * item.unit_price for item in self.items.all())
+        items_total = sum(item.quantity * item.unit_price for item in self.items.all())
+        return items_total + self.delivery_fee
+
+    @property
+    def delivery_fee(self):
+        if not self.address_id:
+            return 0
+        if self.address.within_city:
+            return self.DELIVERY_FEE_IN_CITY
+        return self.DELIVERY_FEE_OUTSIDE_CITY
 
 
 class OrderItem(models.Model):

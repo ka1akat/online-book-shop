@@ -51,7 +51,16 @@ class CategoryAdmin(RoleAdminMixin, admin.ModelAdmin):
 class AddressAdmin(RoleAdminMixin, admin.ModelAdmin):
     view_roles = ["support", "finance", "manager"]
     edit_roles = ["support", "manager"]
-    list_display = ["address_id", "customer", "city", "street", "building", "is_default"]
+    list_display = [
+        "address_id", "customer", "city", "full_address", "within_city",
+        "entrance", "apartment", "intercom_code", "floor", "is_default",
+    ]
+    list_filter = ["city", "within_city", "is_default"]
+    search_fields = ["customer__full_name", "customer__email", "city", "full_address"]
+    fields = [
+        "customer", "city", "full_address", "within_city", "entrance",
+        "apartment", "intercom_code", "floor", "is_default",
+    ]
 
 
 class OrderItemInline(RoleAdminMixin, admin.TabularInline):

@@ -4,6 +4,7 @@ from shop.models import Order, Payment, Product, StockLog
 from shop.services import ShopError, create_order, pay_order
 
 GOOD_CARD = "4111111111111111"
+TEST_ADDRESS = {"city": "Semey", "within_city": True, "full_address": "Abay Street 10"}
 
 
 class ReservationExtraTests(TestCase):
@@ -15,13 +16,13 @@ class ReservationExtraTests(TestCase):
         self.customer = {"full_name": "Aigerim", "email": "a@test.kz", "phone": ""}
 
     def test_reservation_lasts_exactly_15_minutes(self):
-        order = create_order(self.customer, [{"product_id": "P-1001", "quantity": 2}])
+        order = create_order(self.customer, [{"product_id": "P-1001", "quantity": 2}], address_data=TEST_ADDRESS)
         delta = order.reserved_until - order.order_date
         self.assertAlmostEqual(delta.total_seconds(), 15 * 60, delta=5)
 
     def test_rollback_is_all_or_nothing(self):
         order = create_order(self.customer, [{"product_id": "P-1001", "quantity": 2},
-                                             {"product_id": "P-1002", "quantity": 1}])
+                                             {"product_id": "P-1002", "quantity": 1}], address_data=TEST_ADDRESS)
         Product.objects.filter(pk="P-1002").update(stock_quantity=0)  # вторая книга закончилась
         with self.assertRaises(ShopError):
             pay_order(order.order_id, GOOD_CARD)
@@ -31,7 +32,7 @@ class ReservationExtraTests(TestCase):
         self.assertFalse(StockLog.objects.exists())
 
     def test_cannot_pay_twice(self):
-        order = create_order(self.customer, [{"product_id": "P-1001", "quantity": 1}])
+        order = create_order(self.customer, [{"product_id": "P-1001", "quantity": 1}], address_data=TEST_ADDRESS)
         pay_order(order.order_id, GOOD_CARD)
         with self.assertRaises(ShopError) as ctx:
             pay_order(order.order_id, GOOD_CARD)

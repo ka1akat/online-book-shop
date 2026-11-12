@@ -1,9 +1,9 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../services/api.service';
 import { CartService } from '../../services/cart.service';
-import { Product } from '../../models';
+import { Category, Product } from '../../models';
 
 @Component({
   selector: 'app-catalog',
@@ -18,26 +18,14 @@ export class CatalogComponent implements OnInit {
   loading = signal(true);
   error = signal('');
 
-  selectedGenre = signal('');
-
-  genres = computed(() => {
-    const all = this.products()
-      .map((p) => p.genre)
-      .filter((g): g is string => !!g);
-    return [...new Set(all)].sort();
-  });
-
-  filteredProducts = computed(() => {
-    const genre = this.selectedGenre();
-    return genre
-      ? this.products().filter((p) => p.genre === genre)
-      : this.products();
-  });
+  categories = signal<Category[]>([]);
+  selectedCategory = signal<number | null>(null);
 
   // Цвет «обложки» зависит от жанра — просто для красоты
   private palette = ['#2f5d50', '#8a3b2e', '#3b4a7a', '#6b4f2a', '#5a3d6e', '#2d6170'];
 
   ngOnInit(): void {
+    this.api.getCategories().subscribe({ next: (items) => this.categories.set(items) });
     this.api.getProducts().subscribe({
       next: (list) => {
         this.products.set(list);
@@ -47,6 +35,15 @@ export class CatalogComponent implements OnInit {
         this.error.set(errorText(err));
         this.loading.set(false);
       },
+    });
+  }
+
+  selectCategory(categoryId: number | null): void {
+    this.selectedCategory.set(categoryId);
+    this.loading.set(true);
+    this.api.getProductsByCategory(categoryId).subscribe({
+      next: (items) => { this.products.set(items); this.loading.set(false); },
+      error: (err) => { this.error.set(errorText(err)); this.loading.set(false); },
     });
   }
 

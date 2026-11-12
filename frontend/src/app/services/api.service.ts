@@ -4,7 +4,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CartLine, CustomerForm, Order, Product } from '../models';
+import { CartLine, Category, CustomerForm, Order, Product } from '../models';
 
 const API = 'http://localhost:8000/api';
 
@@ -28,10 +28,29 @@ export class ApiService {
     return this.http.get<Product[]>(`${API}/products/`);
   }
 
+  getCategories(): Observable<Category[]> {
+    return this.http.get<Category[]>(`${API}/categories/`);
+  }
+
+  getProductsByCategory(categoryId: number | null): Observable<Product[]> {
+    const url = categoryId === null ? `${API}/products/` : `${API}/products/?category_id=${categoryId}`;
+    return this.http.get<Product[]>(url);
+  }
+
   createOrder(customer: CustomerForm, lines: CartLine[]): Observable<Order> {
     return this.http.post<Order>(`${API}/orders/`, {
-      customer,
+      customer: { full_name: customer.full_name, email: customer.email, phone: customer.phone },
       items: lines.map((l) => ({ product_id: l.product.product_id, quantity: l.quantity })),
+      delivery_method: customer.delivery_method,
+      address: {
+        city: customer.city,
+        full_address: customer.full_address,
+        within_city: customer.within_city,
+        entrance: customer.entrance,
+        apartment: customer.apartment,
+        intercom_code: customer.intercom_code,
+        floor: customer.floor,
+      },
     });
   }
 

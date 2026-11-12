@@ -1,23 +1,23 @@
 <section class="page">
   <header class="catalog-head">
     <h1>Our books</h1>
-    <p>Pick a genre and find your next book</p>
+    <p>Browse by category and find your next book</p>
 
     @if (!loading() && !error()) {
-      <div class="genre-words" aria-label="Filter books by genre">
+      <div class="genre-words" aria-label="Filter books by category">
         <button
           type="button"
           class="genre-word"
-          [class.genre-word-active]="selectedGenre() === ''"
-          (click)="selectedGenre.set('')"
+          [class.genre-word-active]="selectedCategory() === null"
+          (click)="selectCategory(null)"
         >All</button>
-        @for (g of genres(); track g) {
+        @for (category of categories(); track category.category_id) {
           <button
             type="button"
             class="genre-word"
-            [class.genre-word-active]="selectedGenre() === g"
-            (click)="selectedGenre.set(g)"
-          >{{ g }}</button>
+            [class.genre-word-active]="selectedCategory() === category.category_id"
+            (click)="selectCategory(category.category_id)"
+          >{{ category.category_name }}</button>
         }
       </div>
     }
@@ -29,7 +29,7 @@
     <p class="alert alert-error">{{ error() }}</p>
   } @else {
     <div class="book-grid">
-      @for (p of filteredProducts(); track p.product_id) {
+      @for (p of products(); track p.product_id) {
         <article class="book-card">
           <div class="book-card-top">
             <div>
@@ -52,7 +52,7 @@
           </div>
 
           <div class="book-card-info">
-            <span>{{ p.genre }}</span>
+            <span>{{ p.category_name || 'Uncategorized' }}</span>
             @if (p.available === 0) {
               <span class="stock stock-out">Out of stock</span>
             } @else if (p.available < 10) {

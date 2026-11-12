@@ -30,9 +30,21 @@
             <span class="line-sum">{{ +line.product.price * line.quantity | number: '1.0-0' }} ₸</span>
           </div>
         }
-        <div class="line line-total">
-          <strong>Total</strong>
+        <div class="line">
+          <span>Books subtotal</span>
           <strong>{{ cart.total() | number: '1.0-0' }} ₸</strong>
+        </div>
+        <div class="line small">
+          <span>Delivery</span>
+          @if (customer.within_city === null) {
+            <strong>Select area</strong>
+          } @else {
+            <strong>{{ deliveryFee() | number: '1.0-0' }} ₸</strong>
+          }
+        </div>
+        <div class="line line-total">
+          <strong>Total including delivery</strong>
+          <strong>{{ cart.total() + (customer.within_city === true ? 1000 : customer.within_city === false ? 1500 : 0) | number: '1.0-0' }} ₸</strong>
         </div>
       </div>
 
@@ -51,6 +63,23 @@
           <input name="phone" [(ngModel)]="customer.phone" maxlength="20" placeholder="+7 701 111 22 33" />
         </label>
 
+        <h2>Delivery address</h2>
+        <label>City<input name="city" [(ngModel)]="customer.city" required maxlength="100" /></label>
+        <label>
+          Location
+          <select name="within_city" [(ngModel)]="customer.within_city" required>
+            <option [ngValue]="null" disabled>Choose a delivery area</option>
+            <option [ngValue]="true">Inside {{ customer.city || 'the city' }} · 1,000 ₸</option>
+            <option [ngValue]="false">Outside {{ customer.city || 'the city' }} · 1,500 ₸</option>
+          </select>
+        </label>
+        <label>Full address<input name="full_address" [(ngModel)]="customer.full_address" required maxlength="300" placeholder="Street, building, block" /></label>
+        <div class="address-row">
+          <label>Entrance (optional)<input name="entrance" [(ngModel)]="customer.entrance" maxlength="30" /></label>
+          <label>Apartment (optional)<input name="apartment" [(ngModel)]="customer.apartment" maxlength="30" /></label>
+          <label>Intercom code (optional)<input name="intercom_code" [(ngModel)]="customer.intercom_code" maxlength="30" /></label>
+          <label>Floor (optional)<input name="floor" [(ngModel)]="customer.floor" maxlength="30" /></label>
+        </div>
         @if (error()) {
           <p class="alert alert-error">{{ error() }}</p>
         }
@@ -58,7 +87,7 @@
         <button class="btn btn-wide" type="submit" [disabled]="f.invalid || sending()">
           {{ sending() ? 'Placing order…' : 'Place order' }}
         </button>
-        <p class="muted small">Your books are reserved for 15 minutes after you place the order.</p>
+        <p class="muted small">Delivery inside the city costs 1,000 ₸. Delivery outside the city costs 1,500 ₸.</p>
       </form>
     </div>
   }

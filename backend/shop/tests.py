@@ -6,10 +6,13 @@ from django.db.models import ProtectedError
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from .models import Customer, Employee, Order, Payment, Product, StockLog
+from .models import Address, Category, Customer, Employee, Order, Payment, Product, StockLog
 from .services import ShopError, refund_payment
 GOOD_CARD = "4111 1111 1111 1111"
 BAD_CARD = "4111 1111 1111 0000"  # банк отклоняет
+TEST_ADDRESS = {
+    "city": "Semey", "within_city": True, "full_address": "Abay Street, building 10",
+}
 
 
 class ShopFlowTests(APITestCase):
@@ -22,6 +25,7 @@ class ShopFlowTests(APITestCase):
     def make_order(self, quantity=1, email="aidar@example.com"):
         return self.client.post("/api/orders/", {
             "customer": {"full_name": "Aidar Nurlanov", "email": email, "phone": "+77011112233"},
+            "address": TEST_ADDRESS,
             "items": [{"product_id": "P-1004", "quantity": quantity}],
         }, format="json")
 
@@ -38,6 +42,20 @@ class ShopFlowTests(APITestCase):
         self.make_order(quantity=2)
         r = self.make_order(quantity=1, email="dana@example.com")
         self.assertEqual(r.status_code, 409)  # overselling не происходит
+
+    def test_delivery_fee_is_based_on_city_limits_not_city_name(self):
+        for email, city, within_city, expected_fee in [
+            ("semey-in@example.com", "Semey", True, 1000),
+            ("semey-out@example.com", "Semey", False, 1500),
+        ]:
+            response = self.client.post("/api/orders/", {
+                "customer": {"full_name": "Test", "email": email, "phone": ""},
+                "address": {**TEST_ADDRESS, "city": city, "within_city": within_city},
+                "items": [{"product_id": "P-1004", "quantity": 1}],
+            }, format="json")
+            self.assertEqual(response.status_code, 201, response.data)
+            self.assertEqual(response.data["delivery_fee"], expected_fee)
+            self.assertEqual(float(response.data["total"]), 5000 + expected_fee)
 
     def test_successful_payment_runs_whole_transaction(self):
         order_id = self.make_order().data["order_id"]
@@ -141,6 +159,45 @@ class RoleAccessTests(APITestCase):
         self.assertEqual(r.status_code, 302)  # не сотрудник: отправляют на вход в админку
 
 
+class CategoryAndAddressApiTests(APITestCase):
+    def test_categories_and_category_product_filter(self):
+        fiction = Category.objects.create(category_name="Test Fiction")
+        poetry = Category.objects.create(category_name="Test Poetry")
+        Product.objects.create(
+            product_id="P-1001", product_name="Book A", author="Author A", genre="novel",
+            category=fiction, price=1000, stock_quantity=2,
+        )
+        Product.objects.create(
+            product_id="P-1002", product_name="Book B", author="Author B", genre="poem",
+            category=poetry, price=1000, stock_quantity=2,
+        )
+
+        categories = self.client.get("/api/categories/")
+        self.assertEqual(categories.status_code, 200)
+        self.assertIn("Test Fiction", {c["category_name"] for c in categories.data})
+        self.assertIn("Test Poetry", {c["category_name"] for c in categories.data})
+
+        books = self.client.get(f"/api/products/?category_id={fiction.pk}")
+        self.assertEqual([book["product_id"] for book in books.data], ["P-1001"])
+
+    def test_customer_can_save_and_list_delivery_address(self):
+        Customer.objects.create(full_name="Test Customer", email="address@example.com")
+        payload = {
+            "email": "address@example.com", "city": "Semey", "within_city": False,
+            "full_address": "Abay Street 10", "entrance": "2", "apartment": "25",
+            "intercom_code": "25B", "floor": "4", "is_default": True,
+        }
+        created = self.client.post("/api/addresses/", payload, format="json")
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["within_city"], False)
+
+        listed = self.client.get("/api/addresses/?email=address@example.com")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.data[0]["full_address"], "Abay Street 10")
+        self.assertEqual(listed.data[0]["intercom_code"], "25B")
+        self.assertEqual(Address.objects.count(), 1)
+
+
 class RegisterTests(APITestCase):
     url = "/api/register/"
     data = {
@@ -214,6 +271,7 @@ class RefundTests(APITestCase):
     def make_order(self, email="aidar@example.com"):
         r = self.client.post("/api/orders/", {
             "customer": {"full_name": "Aidar Nurlanov", "email": email, "phone": "+77011112233"},
+            "address": TEST_ADDRESS,
             "items": [{"product_id": "P-1004", "quantity": 1}],
         }, format="json")
         return r.data["order_id"]

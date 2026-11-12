@@ -19,13 +19,20 @@ export class CartComponent {
   private router = inject(Router);
   cart = inject(CartService);
 
-  customer: CustomerForm = { full_name: '', email: '', phone: '' };
+  customer: CustomerForm = {
+    full_name: '', email: '', phone: '', city: '', full_address: '', within_city: null, entrance: '', apartment: '',
+    intercom_code: '', floor: '', delivery_method: 'delivery',
+  };
   sending = signal(false);
   error = signal('');
 
   change(line: CartLine, delta: number): void {
     const next = Math.min(line.quantity + delta, line.product.available);
     this.cart.setQuantity(line.product, next);
+  }
+
+  deliveryFee(): number {
+    return this.customer.within_city ? 1000 : 1500;
   }
 
   checkout(): void {

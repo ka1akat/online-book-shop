@@ -7,11 +7,11 @@ from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIV
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Employee, Order, Product, StockLog
+from .models import Address, Category, Customer, Employee, Order, Product, StockLog
 from .permissions import IsWarehouse, IsWarehouseOrManager
 from .serializers import (
-    CreateOrderSerializer, LoginSerializer, OrderSerializer, PayOrderSerializer,
-    ProductSerializer, RegisterSerializer,
+    AddressCreateSerializer, AddressSerializer, CategorySerializer, CreateOrderSerializer,
+    LoginSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer, RegisterSerializer,
 )
 from .services import ShopError, create_order, expire_reservations, pay_order
 
@@ -19,7 +19,7 @@ from .services import ShopError, create_order, expire_reservations, pay_order
 class LowStockView(ListAPIView):
     """SELECT ... FROM products WHERE stock_quantity < 10 ORDER BY stock_quantity;"""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsWarehouseOrManager]
     serializer_class = ProductSerializer
 
@@ -39,7 +39,15 @@ class ProductListView(ListCreateAPIView):
 
     def get_queryset(self):
         expire_reservations()
-        return Product.objects.order_by("product_id")
+        queryset = Product.objects.select_related("category").order_by("product_id")
+        category_id = self.request.query_params.get("category_id")
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+        search = self.request.query_params.get("search")
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(Q(product_name__icontains=search) | Q(author__icontains=search))
+        return queryset
 
     def perform_create(self, serializer):
         # Новая книга с остатком = поставка: пишем её в STOCK_LOG с логином сотрудника
@@ -60,7 +68,7 @@ class OrderDetailView(RetrieveAPIView):
 
     def get_queryset(self):
         expire_reservations()
-        return Order.objects.select_related("customer").prefetch_related(
+        return Order.objects.select_related("customer", "address").prefetch_related(
             "items__product", "payments"
         )
 
@@ -70,10 +78,48 @@ def create_order_view(request):
     data = CreateOrderSerializer(data=request.data)
     data.is_valid(raise_exception=True)  # если поля неправильные — ответ 400 с ошибками
     try:
-        order = create_order(data.validated_data["customer"], data.validated_data["items"])
+        order = create_order(
+            data.validated_data["customer"], data.validated_data["items"],
+            data.validated_data["delivery_method"], data.validated_data.get("address"),
+        )
     except ShopError as e:
         return Response({"detail": e.message}, status=e.status_code)
     return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+
+class CategoryListView(ListAPIView):
+    serializer_class = CategorySerializer
+    permission_classes = [AllowAny]
+    queryset = Category.objects.order_by("category_name")
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def addresses_view(request):
+    if request.method == "GET":
+        email = request.query_params.get("email", "").strip().lower()
+        if not email:
+            return Response({"email": "Email query parameter is required."}, status=400)
+        addresses = Address.objects.filter(customer__email=email).order_by("-is_default", "address_id")
+        return Response(AddressSerializer(addresses, many=True).data)
+
+    data = AddressCreateSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    values = data.validated_data
+    try:
+        customer = Customer.objects.get(email=values.pop("email").lower())
+    except Customer.DoesNotExist:
+        return Response({"detail": "Customer not found. Create an order first."}, status=404)
+    if values["is_default"]:
+        Address.objects.filter(customer=customer, is_default=True).update(is_default=False)
+    address = Address.objects.create(
+        customer=customer,
+        street=values["full_address"],
+        building="",
+        **values,
+    )
+    return Response(AddressSerializer(address).data, status=201)
 
 
 @api_view(["POST"])

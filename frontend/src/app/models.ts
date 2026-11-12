@@ -6,10 +6,28 @@ export interface Product {
   product_name: string;
   author: string;
   genre: string;
+  category_id: number | null;
+  category_name: string | null;
   price: string;           // Django присылает DECIMAL как строку: "6500.00"
   stock_quantity: number;  // сколько на складе
   available: number;       // сколько можно купить (склад минус брони)
   last_updated: string;
+}
+
+export interface Category {
+  category_id: number;
+  category_name: string;
+  description: string;
+}
+
+export interface DeliveryAddress {
+  city: string;
+  full_address: string;
+  within_city: boolean;
+  entrance: string;
+  apartment: string;
+  intercom_code: string;
+  floor: string;
 }
 
 export interface OrderItem {
@@ -38,6 +56,9 @@ export interface Order {
   total: string;
   items: OrderItem[];
   payments: Payment[];
+  delivery_method: 'delivery';
+  address: DeliveryAddress | null;
+  delivery_fee: number;
 }
 
 export interface CartLine {
@@ -49,4 +70,12 @@ export interface CustomerForm {
   full_name: string;
   email: string;
   phone: string;
+  city: string;
+  full_address: string;
+  within_city: boolean | null;
+  entrance: string;
+  apartment: string;
+  intercom_code: string;
+  floor: string;
+  delivery_method: 'delivery';
 }

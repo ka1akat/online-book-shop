@@ -140,6 +140,8 @@ main { max-width: 1120px; margin: 0 auto; padding: 36px 32px 60px; }
   font: inherit; color: var(--ink); background: #fff;
 }
 .form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.form select { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: var(--ink); background: #fff; }
+.address-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form p { margin: 0; }
 
 .alert { padding: 10px 12px; border-radius: 8px; margin: 0; }
