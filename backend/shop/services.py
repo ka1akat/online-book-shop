@@ -113,54 +113,64 @@ def pay_order(order_id, card_number):
     Шаг 2 главного действия: оплата.
     Транзакция из Task 9: уменьшить склад -> сохранить оплату -> статус paid -> запись в STOCK_LOG.
     Либо все шаги выполняются (COMMIT), либо ни один (ROLLBACK).
+    Защита от двойного клика: строка заказа блокируется, второй запрос ждёт и видит статус paid.
     """
     expire_reservations()
 
-    try:
-        order = Order.objects.get(pk=order_id)
-    except Order.DoesNotExist:
-        raise ShopError("Заказ не найден.", 404)
-
-    if order.status == Order.Status.PAID:
-        raise ShopError("Этот заказ уже оплачен.", 409)
-    if order.status == Order.Status.CANCELLED:
-        raise ShopError("Бронь истекла (15 минут). Оформите заказ заново.", 409)
-
-    amount = order.total
-    approved, transaction_id = fake_bank(card_number, amount)
-
-    if not approved:
-        # Неудачная попытка тоже сохраняется: у заказа может быть много оплат (1:M)
-        Payment.objects.create(
-            order=order, transaction_id=transaction_id, amount=amount, status=Payment.Status.FAILED
-        )
-        raise ShopError("Банк отклонил оплату: недостаточно средств. Попробуйте другую карту.", 402)
-
+    declined = False
     with transaction.atomic():  # BEGIN
-        for item in order.items.select_related("product"):
-            # UPDATE ... WHERE stock_quantity >= quantity — как в Task 9
-            updated = Product.objects.filter(
-                pk=item.product_id, stock_quantity__gte=item.quantity
-            ).update(
-                stock_quantity=F("stock_quantity") - item.quantity,
-                last_updated=timezone.localdate(),
-            )
-            if updated == 0:
-                # 0 строк изменилось -> книги нет -> ROLLBACK всей транзакции
-                raise ShopError(f"«{item.product.product_name}» закончилась.", 409)
+        # Блокируем заказ: пока идёт эта оплата, другой запрос на этот же заказ ждёт здесь
+        try:
+            order = Order.objects.select_for_update().get(pk=order_id)
+        except Order.DoesNotExist:
+            raise ShopError("Заказ не найден.", 404)
 
-            StockLog.objects.create(
-                product_id=item.product_id,
-                changed_by="payment-system",
-                change_amount=-item.quantity,
-                reason="sale",
-            )
+        # Проверяем статус и время УЖЕ после блокировки, а не до неё
+        if order.status == Order.Status.PAID:
+            raise ShopError("Этот заказ уже оплачен.", 409)
+        if order.status == Order.Status.CANCELLED or order.reserved_until <= timezone.now():
+            raise ShopError("Бронь истекла (15 минут). Оформите заказ заново.", 409)
 
-        Payment.objects.create(
-            order=order, transaction_id=transaction_id, amount=amount, status=Payment.Status.SUCCESS
-        )
-        order.status = Order.Status.PAID
-        order.save(update_fields=["status"])
+        amount = order.total
+        approved, transaction_id = fake_bank(card_number, amount)
+
+        if not approved:
+            # Неудачная попытка тоже сохраняется: у заказа может быть много оплат (1:M)
+            Payment.objects.create(
+                order=order, transaction_id=transaction_id, amount=amount,
+                status=Payment.Status.FAILED,
+            )
+            declined = True
+        else:
+            for item in order.items.select_related("product"):
+                # UPDATE ... WHERE stock_quantity >= quantity — как в Task 9
+                updated = Product.objects.filter(
+                    pk=item.product_id, stock_quantity__gte=item.quantity
+                ).update(
+                    stock_quantity=F("stock_quantity") - item.quantity,
+                    last_updated=timezone.localdate(),
+                )
+                if updated == 0:
+                    # 0 строк изменилось -> книги нет -> ROLLBACK всей транзакции
+                    raise ShopError(f"«{item.product.product_name}» закончилась.", 409)
+
+                StockLog.objects.create(
+                    product_id=item.product_id,
+                    changed_by="payment-system",
+                    change_amount=-item.quantity,
+                    reason="sale",
+                )
+
+            Payment.objects.create(
+                order=order, transaction_id=transaction_id, amount=amount,
+                status=Payment.Status.SUCCESS,
+            )
+            order.status = Order.Status.PAID
+            order.save(update_fields=["status"])
     # COMMIT — выход из блока with без ошибки
+
+    if declined:
+        # Ошибку показываем уже после COMMIT, чтобы запись о неудачной попытке сохранилась
+        raise ShopError("Банк отклонил оплату: недостаточно средств. Попробуйте другую карту.", 402)
 
     return order
