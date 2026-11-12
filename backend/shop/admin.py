@@ -1,11 +1,10 @@
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.db import transaction
 
 from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, StockLog, StockRequest
-from .permissions import RoleAdminMixin, get_role
-from .services import ShopError, refund_payment
+from .permissions import RoleAdminMixin
 
 
 @admin.register(Product)
@@ -80,40 +79,8 @@ class OrderAdmin(RoleAdminMixin, admin.ModelAdmin):
 @admin.register(Payment)
 class PaymentAdmin(RoleAdminMixin, admin.ModelAdmin):
     view_roles = ["finance", "manager"]
-    list_display = ["payment_id", "order", "transaction_id", "amount", "status",
-                    "refund_reason", "refunded_at", "paid_at"]
-    list_filter = ["status"]
-    actions = ["refund_changed_mind", "refund_defective", "refund_other"]
+    list_display = ["payment_id", "order", "transaction_id", "amount", "status", "paid_at"]
 
-    def has_refund_permission(self, request):
-        # возврат могут делать только finance и admin
-        return get_role(request.user) in ["finance", "admin"]
-
-    def _refund(self, request, queryset, reason):
-        employee = Employee.objects.filter(user=request.user).first()
-        done = 0
-        for payment in queryset:
-            try:
-                refund_payment(payment.pk, employee=employee,
-                               changed_by=request.user.username, reason=reason)
-                done += 1
-            except ShopError as error:
-                self.message_user(request, f"Payment {payment.pk}: {error.message}",
-                                  level=messages.ERROR)
-        if done:
-            self.message_user(request, f"Refunded payments: {done}", level=messages.SUCCESS)
-
-    @admin.action(description="Refund selected: customer changed mind", permissions=["refund"])
-    def refund_changed_mind(self, request, queryset):
-        self._refund(request, queryset, "changed_mind")
-
-    @admin.action(description="Refund selected: defective item", permissions=["refund"])
-    def refund_defective(self, request, queryset):
-        self._refund(request, queryset, "defective")
-
-    @admin.action(description="Refund selected: other reason", permissions=["refund"])
-    def refund_other(self, request, queryset):
-        self._refund(request, queryset, "other")
 
 @admin.register(StockLog)
 class StockLogAdmin(RoleAdminMixin, admin.ModelAdmin):
