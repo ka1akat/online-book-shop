@@ -234,3 +234,35 @@ class StockRequest(models.Model):
     class Meta:
         db_table = "stock_requests"
         constraints = [models.UniqueConstraint(fields=["customer", "product"], name="unique_customer_product_stock_request")]
+
+
+class Review(models.Model):
+    """REVIEWS — отзыв и оценка покупателя на книгу. Их видят все посетители сайта."""
+
+    review_id = models.AutoField(primary_key=True)
+    # FK -> PRODUCTS. CASCADE: если книгу удалят, её отзывы удаляются вместе с ней
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, db_column="product_id", related_name="reviews"
+    )
+    # FK -> CUSTOMERS. Кто написал отзыв
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, db_column="customer_id", related_name="reviews"
+    )
+    rating = models.PositiveSmallIntegerField()  # звёзды от 1 до 5
+    comment = models.TextField(blank=True)  # текст отзыва, можно оставить пустым
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "reviews"
+        constraints = [
+            # CHECK: оценка только от 1 до 5
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5), name="rating_1_to_5"
+            ),
+            # UNIQUE: один покупатель пишет только один отзыв на одну книгу
+            models.UniqueConstraint(fields=["customer", "product"], name="one_review_per_customer_book"),
+        ]
+
+    def __str__(self):
+        return f"{self.product_id}: {self.rating}★ by {self.customer.full_name}"

@@ -1,0 +1,96 @@
+<section class="page book-page">
+  <a class="back-link" routerLink="/catalog">← Back to catalog</a>
+
+  @if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else if (error()) {
+    <p class="alert alert-error">{{ error() }}</p>
+  } @else {
+    @if (book(); as b) {
+      <div class="book-detail">
+        <div class="book-cover book-cover-big">
+          <span class="book-cover-title">{{ b.product_name }}</span>
+          <span class="book-cover-author">{{ b.author }}</span>
+        </div>
+
+        <div class="book-detail-info">
+          <span class="muted small">{{ b.category_name || 'Uncategorized' }}</span>
+          <h1>{{ b.product_name }}</h1>
+          <p class="muted">by {{ b.author }}</p>
+
+          <div class="rating-summary">
+            <app-stars [rating]="b.avg_rating" />
+            @if (b.review_count > 0) {
+              <strong>{{ b.avg_rating }}</strong>
+              <span class="muted">from {{ b.review_count }} {{ b.review_count === 1 ? 'review' : 'reviews' }}</span>
+            } @else {
+              <span class="muted">No reviews yet</span>
+            }
+          </div>
+
+          <strong class="book-detail-price">{{ b.price | number: '1.0-0' }} ₸</strong>
+          @if (b.available === 0) {
+            <p class="stock stock-out">Out of stock</p>
+          }
+          <button class="btn" [disabled]="!canAdd(b)" (click)="cart.add(b)">Add to cart</button>
+          @if (cart.quantityOf(b.product_id) > 0) {
+            <a class="book-card-link" routerLink="/cart">In cart: {{ cart.quantityOf(b.product_id) }}</a>
+          }
+        </div>
+      </div>
+
+      <div class="reviews">
+        <h2>Reviews</h2>
+
+        <!-- Форма: только для тех, кто вошёл -->
+        @if (auth.user()) {
+          <form class="review-form" (ngSubmit)="submit()">
+            <h3>{{ myReview() ? 'Edit your review' : 'Write a review' }}</h3>
+            <div class="star-picker" role="radiogroup" aria-label="Your rating" (mouseleave)="hoverRating.set(0)">
+              @for (n of [1, 2, 3, 4, 5]; track n) {
+                <button
+                  type="button"
+                  role="radio"
+                  [attr.aria-checked]="rating() === n"
+                  [attr.aria-label]="n + ' stars'"
+                  [class.star-on]="n <= (hoverRating() || rating())"
+                  (mouseenter)="hoverRating.set(n)"
+                  (click)="rating.set(n)"
+                >★</button>
+              }
+            </div>
+            <textarea
+              name="comment"
+              rows="3"
+              maxlength="1000"
+              placeholder="What did you think of this book? (optional)"
+              [(ngModel)]="comment"
+            ></textarea>
+            @if (formError()) { <p class="alert alert-error">{{ formError() }}</p> }
+            @if (formDone()) { <p class="alert alert-ok">{{ formDone() }}</p> }
+            <button class="btn" type="submit" [disabled]="sending()">
+              {{ sending() ? 'Sending…' : myReview() ? 'Update review' : 'Publish review' }}
+            </button>
+          </form>
+        } @else {
+          <p class="review-login muted">
+            <a routerLink="/login">Log in</a> to rate this book and leave a review.
+          </p>
+        }
+
+        @for (r of reviews(); track r.review_id) {
+          <article class="review">
+            <div class="review-head">
+              <strong>{{ r.customer_name }}</strong>
+              <app-stars [rating]="r.rating" />
+              <span class="muted small">{{ r.created_at | date: 'd MMM y' }}</span>
+            </div>
+            @if (r.comment) { <p>{{ r.comment }}</p> }
+          </article>
+        } @empty {
+          <p class="muted">Be the first to review this book.</p>
+        }
+      </div>
+    }
+  }
+</section>

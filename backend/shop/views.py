@@ -1,19 +1,74 @@
+from decimal import Decimal, InvalidOperation
+
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
+from django.core import signing
 from django.db import transaction
+from django.db.models import Avg, Count, F, Q
 from rest_framework import status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIView
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Address, Category, Customer, Employee, Order, Product, StockLog
+from .models import Address, Category, Customer, Employee, Order, Product, Review, StockLog
 from .permissions import IsWarehouse, IsWarehouseOrManager
 from .serializers import (
     AddressCreateSerializer, AddressSerializer, CategorySerializer, CreateOrderSerializer,
     LoginSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer, RegisterSerializer,
+    ReviewInputSerializer, ReviewSerializer,
 )
 from .services import ShopError, create_order, expire_reservations, pay_order
+
+
+def products_with_rating():
+    """Книги + средняя оценка и число отзывов, посчитанные самой базой.
+
+    То же самое на SQL:
+    SELECT p.*, AVG(r.rating) AS avg_rating, COUNT(r.review_id) AS review_count
+    FROM products p LEFT JOIN reviews r ON r.product_id = p.product_id
+    GROUP BY p.product_id;
+    """
+    return Product.objects.annotate(avg_rating=Avg("reviews__rating"), review_count=Count("reviews"))
+
+
+def number_param(params, name):
+    """Читает число из адреса (?min_price=3000). Пусто — фильтра нет, не число — ошибка 400."""
+    raw = params.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = Decimal(raw)
+    except InvalidOperation:
+        raise ValidationError({name: "Must be a number."})
+    if value < 0:
+        raise ValidationError({name: "Cannot be negative."})
+    return value
+
+
+# --- Токен входа ---
+# После входа Django выдаёт подписанную строку с id пользователя.
+# Подделать её нельзя: подпись делается секретным ключом SECRET_KEY из settings.py.
+# Angular присылает токен в заголовке Authorization, когда пишет отзыв.
+TOKEN_SALT = "bookshop-auth"
+TOKEN_MAX_AGE = 60 * 60 * 24 * 7  # токен действует 7 дней
+
+
+def make_token(user):
+    return signing.dumps({"user_id": user.id}, salt=TOKEN_SALT)
+
+
+def user_from_token(request):
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        return None
+    try:
+        data = signing.loads(header[len("Bearer "):], salt=TOKEN_SALT, max_age=TOKEN_MAX_AGE)
+    except signing.BadSignature:  # подделан или истёк срок
+        return None
+    return User.objects.filter(id=data.get("user_id"), is_active=True).first()
 
 
 class LowStockView(ListAPIView):
@@ -37,17 +92,43 @@ class ProductListView(ListCreateAPIView):
             return [IsWarehouse()]
         return [AllowAny()]
 
+    # Как можно отсортировать каталог: ?ordering=price / -price / -rating
+    ORDERINGS = {
+        "price": ["price", "product_id"],                    # сначала дешёвые
+        "-price": ["-price", "product_id"],                  # сначала дорогие
+        "-rating": [F("avg_rating").desc(nulls_last=True), "-review_count", "product_id"],
+    }
+
     def get_queryset(self):
         expire_reservations()
-        queryset = Product.objects.select_related("category").order_by("product_id")
-        category_id = self.request.query_params.get("category_id")
+        params = self.request.query_params
+        queryset = products_with_rating().select_related("category")
+
+        category_id = params.get("category_id")
         if category_id:
             queryset = queryset.filter(category_id=category_id)
-        search = self.request.query_params.get("search")
+        search = params.get("search")
         if search:
-            from django.db.models import Q
             queryset = queryset.filter(Q(product_name__icontains=search) | Q(author__icontains=search))
-        return queryset
+
+        # Фильтр по цене: ?min_price=3000&max_price=7000
+        min_price = number_param(params, "min_price")
+        max_price = number_param(params, "max_price")
+        if min_price is not None:
+            queryset = queryset.filter(price__gte=min_price)
+        if max_price is not None:
+            queryset = queryset.filter(price__lte=max_price)
+
+        # Фильтр по рейтингу: ?min_rating=4 — только книги со средней оценкой 4 и выше.
+        # Книги без отзывов сюда не попадают: у них оценки ещё нет.
+        min_rating = number_param(params, "min_rating")
+        if min_rating is not None:
+            queryset = queryset.filter(avg_rating__gte=min_rating)
+
+        ordering = params.get("ordering", "")
+        if ordering and ordering not in self.ORDERINGS:
+            raise ValidationError({"ordering": f"Use one of: {', '.join(self.ORDERINGS)}."})
+        return queryset.order_by(*self.ORDERINGS.get(ordering, ["product_id"]))
 
     def perform_create(self, serializer):
         # Новая книга с остатком = поставка: пишем её в STOCK_LOG с логином сотрудника
@@ -61,6 +142,56 @@ class ProductListView(ListCreateAPIView):
                     change_amount=product.stock_quantity,
                     reason="delivery",
                 )
+
+
+class ProductDetailView(RetrieveAPIView):
+    """Одна книга со средней оценкой: GET /api/products/P-1001/"""
+
+    serializer_class = ProductSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        expire_reservations()
+        return products_with_rating().select_related("category")
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def product_reviews_view(request, pk):
+    """GET — все отзывы на книгу (видят все). POST — добавить или изменить свой отзыв (нужен вход)."""
+    try:
+        product = Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return Response({"detail": "Book not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    user = user_from_token(request)  # None, если посетитель не вошёл
+
+    if request.method == "GET":
+        reviews = product.reviews.select_related("customer").order_by("-created_at")
+        context = {"email": user.email.lower() if user else None}
+        return Response(ReviewSerializer(reviews, many=True, context=context).data)
+
+    if user is None:
+        return Response(
+            {"detail": "Please log in to leave a review."}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    data = ReviewInputSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+
+    # Отзыв привязан к таблице CUSTOMERS. Если покупатель ещё ничего не заказывал,
+    # строки в CUSTOMERS у него нет — создаём её по email из аккаунта.
+    customer, _ = Customer.objects.get_or_create(
+        email=user.email.lower(), defaults={"full_name": user.first_name or user.email}
+    )
+    # Один покупатель — один отзыв на книгу: если отзыв уже есть, он обновляется
+    review, created = Review.objects.update_or_create(
+        customer=customer, product=product, defaults=data.validated_data
+    )
+    return Response(
+        ReviewSerializer(review, context={"email": customer.email}).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
 
 
 class OrderDetailView(RetrieveAPIView):
@@ -141,7 +272,7 @@ def register_view(request):
     data.is_valid(raise_exception=True)
     user = data.save()
     return Response(
-        {"id": user.id, "full_name": user.first_name, "email": user.email},
+        {"id": user.id, "full_name": user.first_name, "email": user.email, "token": make_token(user)},
         status=status.HTTP_201_CREATED,
     )
 
@@ -162,4 +293,6 @@ def login_view(request):
             {"detail": "Incorrect email or password."},
             status=status.HTTP_401_UNAUTHORIZED,
         )
-    return Response({"id": user.id, "full_name": user.first_name, "email": user.email})
+    return Response(
+        {"id": user.id, "full_name": user.first_name, "email": user.email, "token": make_token(user)}
+    )

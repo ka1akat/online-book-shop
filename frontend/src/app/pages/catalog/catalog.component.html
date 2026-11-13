@@ -3,37 +3,72 @@
     <h1>Our books</h1>
     <p>Browse by category and find your next book</p>
 
-    @if (!loading() && !error()) {
-      <div class="genre-words" aria-label="Filter books by category">
+    <div class="genre-words" aria-label="Filter books by category">
+      <button
+        type="button"
+        class="genre-word"
+        [class.genre-word-active]="filters.category_id === null"
+        (click)="selectCategory(null)"
+      >All</button>
+      @for (category of categories(); track category.category_id) {
         <button
           type="button"
           class="genre-word"
-          [class.genre-word-active]="selectedCategory() === null"
-          (click)="selectCategory(null)"
-        >All</button>
-        @for (category of categories(); track category.category_id) {
-          <button
-            type="button"
-            class="genre-word"
-            [class.genre-word-active]="selectedCategory() === category.category_id"
-            (click)="selectCategory(category.category_id)"
-          >{{ category.category_name }}</button>
-        }
-      </div>
-    }
+          [class.genre-word-active]="filters.category_id === category.category_id"
+          (click)="selectCategory(category.category_id)"
+        >{{ category.category_name }}</button>
+      }
+    </div>
+
+    <!-- Фильтры по цене и рейтингу + сортировка -->
+    <div class="filter-bar">
+      <label class="filter-field">
+        <span>Price from, ₸</span>
+        <input type="number" min="0" step="500" placeholder="0"
+               [(ngModel)]="filters.min_price" (change)="load()" />
+      </label>
+      <label class="filter-field">
+        <span>Price to, ₸</span>
+        <input type="number" min="0" step="500" placeholder="any"
+               [(ngModel)]="filters.max_price" (change)="load()" />
+      </label>
+      <label class="filter-field">
+        <span>Rating</span>
+        <select [(ngModel)]="filters.min_rating" (change)="load()">
+          <option [ngValue]="null">Any rating</option>
+          <option [ngValue]="4">★ 4 and up</option>
+          <option [ngValue]="3">★ 3 and up</option>
+          <option [ngValue]="2">★ 2 and up</option>
+        </select>
+      </label>
+      <label class="filter-field">
+        <span>Sort by</span>
+        <select [(ngModel)]="filters.ordering" (change)="load()">
+          <option value="">Default</option>
+          <option value="price">Price: low to high</option>
+          <option value="-price">Price: high to low</option>
+          <option value="-rating">Top rated</option>
+        </select>
+      </label>
+      @if (hasExtraFilters()) {
+        <button type="button" class="filter-reset" (click)="resetFilters()">Reset</button>
+      }
+    </div>
   </header>
 
   @if (loading()) {
     <p class="muted">Loading…</p>
   } @else if (error()) {
     <p class="alert alert-error">{{ error() }}</p>
+  } @else if (products().length === 0) {
+    <p class="muted empty-result">No books match these filters.</p>
   } @else {
     <div class="book-grid">
       @for (p of products(); track p.product_id) {
         <article class="book-card">
           <div class="book-card-top">
             <div>
-              <span class="book-card-name">{{ p.product_name }}</span>
+              <a class="book-card-name" [routerLink]="['/books', p.product_id]">{{ p.product_name }}</a>
               <strong class="book-card-price">{{ p.price | number: '1.0-0' }} ₸</strong>
             </div>
             <button
@@ -46,10 +81,19 @@
             </button>
           </div>
 
-          <div class="book-cover" [style.background]="coverColor(p)">
+          <a class="book-cover" [routerLink]="['/books', p.product_id]" [style.background]="coverColor(p)">
             <span class="book-cover-title">{{ p.product_name }}</span>
             <span class="book-cover-author">{{ p.author }}</span>
-          </div>
+          </a>
+
+          <a class="book-card-rating" [routerLink]="['/books', p.product_id]">
+            <app-stars [rating]="p.avg_rating" />
+            @if (p.review_count > 0) {
+              <span>{{ p.avg_rating }} · {{ p.review_count }} {{ p.review_count === 1 ? 'review' : 'reviews' }}</span>
+            } @else {
+              <span>No reviews yet</span>
+            }
+          </a>
 
           <div class="book-card-info">
             <span>{{ p.category_name || 'Uncategorized' }}</span>
