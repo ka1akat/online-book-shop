@@ -7,10 +7,12 @@ import { CartComponent } from './pages/cart/cart.component';
 import { OrderComponent } from './pages/order/order.component';
 import { RegisterComponent } from './pages/register/register.component';
 import { LoginComponent } from './pages/login/login.component';
+import { BookComponent } from './pages/book/book.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent, title: 'Online Book Shop' },
   { path: 'catalog', component: CatalogComponent, title: 'Catalog · Online Book Shop' },
+  { path: 'books/:id', component: BookComponent, title: 'Book · Online Book Shop' },
   { path: 'cart', component: CartComponent, title: 'Cart · Online Book Shop' },
   { path: 'orders/:id', component: OrderComponent, title: 'Order · Online Book Shop' },
   { path: 'register', component: RegisterComponent, title: 'Sign up · Online Book Shop' },

@@ -1,10 +1,10 @@
 // ApiService — единственное место, где Angular общается с Django.
 // Каждый метод = один адрес API из backend/shop/urls.py.
 
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CartLine, Category, CustomerForm, Order, Product } from '../models';
+import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review } from '../models';
 
 const API = 'http://localhost:8000/api';
 
@@ -18,24 +18,49 @@ export interface RegisteredUser {
   id: number;
   full_name: string;
   email: string;
+  token?: string; // подписанный Django токен; нужен, чтобы писать отзывы
 }
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
 
-  getProducts(): Observable<Product[]> {
-    return this.http.get<Product[]>(`${API}/products/`);
+  // Без фильтров — все книги. С фильтрами получится адрес вида
+  // /api/products/?category_id=2&min_price=3000&min_rating=4&ordering=-rating
+  getProducts(filters?: ProductFilters): Observable<Product[]> {
+    let params = new HttpParams();
+    if (filters) {
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== null && value !== '') {
+          params = params.set(key, String(value));
+        }
+      }
+    }
+    return this.http.get<Product[]>(`${API}/products/`, { params });
+  }
+
+  getProduct(productId: string): Observable<Product> {
+    return this.http.get<Product>(`${API}/products/${productId}/`);
+  }
+
+  // Токен необязателен: с ним Django отметит мой отзыв флажком is_mine
+  getReviews(productId: string, token?: string): Observable<Review[]> {
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : undefined;
+    return this.http.get<Review[]>(`${API}/products/${productId}/reviews/`, { headers });
+  }
+
+  // Токен идёт в заголовке Authorization: так Django понимает, кто пишет отзыв
+  addReview(productId: string, rating: number, comment: string, token: string): Observable<Review> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.post<Review>(
+      `${API}/products/${productId}/reviews/`, { rating, comment }, { headers },
+    );
   }
 
   getCategories(): Observable<Category[]> {
     return this.http.get<Category[]>(`${API}/categories/`);
   }
 
-  getProductsByCategory(categoryId: number | null): Observable<Product[]> {
-    const url = categoryId === null ? `${API}/products/` : `${API}/products/?category_id=${categoryId}`;
-    return this.http.get<Product[]>(url);
-  }
 
   createOrder(customer: CustomerForm, lines: CartLine[]): Observable<Order> {
     return this.http.post<Order>(`${API}/orders/`, {

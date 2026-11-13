@@ -501,3 +501,115 @@ nav {
   color: var(--ink);
   background: var(--bg);
 }
+
+/* ---------- Звёзды рейтинга ---------- */
+.stars { color: #d9cfc0; letter-spacing: 1px; font-size: 15px; }
+.stars .star-on { color: #e0a526; }
+
+/* ---------- Фильтры каталога: цена, рейтинг, сортировка ---------- */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px 16px;
+  margin-top: 18px;
+}
+.filter-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.filter-field input,
+.filter-field select {
+  width: 150px;
+  padding: 9px 12px;
+  border: 1px solid #111111;
+  border-radius: 999px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  color: #111111;
+}
+.filter-field select { width: 170px; }
+.filter-field input:focus,
+.filter-field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.filter-reset {
+  padding: 9px 16px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.empty-result { text-align: center; padding: 40px 0; }
+
+.book-card-name:hover { text-decoration: underline; }
+.book-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.book-card-rating + .book-card-info { margin-top: 6px; }
+
+/* ---------- Страница книги ---------- */
+.back-link { display: inline-block; margin-bottom: 20px; font-weight: 600; color: var(--muted); }
+.back-link:hover { color: var(--ink); }
+.book-detail {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 40px;
+  align-items: start;
+  padding: 28px;
+  border-radius: 20px;
+  background: #fbe9dd;
+}
+.book-cover-big { width: 100%; background: #2f5d50; }
+.book-detail-info { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.book-detail-info h1 { margin: 0; }
+.book-detail-info p { margin: 0; }
+.book-detail-info .btn { margin-top: 10px; }
+.rating-summary { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.rating-summary .stars { font-size: 20px; }
+.book-detail-price { font-size: 26px; }
+
+.reviews { margin-top: 36px; max-width: 720px; }
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  margin: 12px 0 24px;
+  border-radius: 16px;
+  background: #eef1f4;
+}
+.review-form h3 { margin: 0; }
+.review-form textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  resize: vertical;
+}
+.review-form .btn { align-self: flex-start; }
+.star-picker { display: flex; gap: 2px; }
+.star-picker button {
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  font-size: 30px;
+  line-height: 1;
+  color: #cfc6b8;
+  cursor: pointer;
+}
+.star-picker button.star-on { color: #e0a526; }
+.alert-ok { background: #e1f1e6; color: var(--ok); }
+.review-login a { color: var(--ink); font-weight: 600; text-decoration: underline; }
+.review { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.review-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.review p { margin: 6px 0 0; white-space: pre-line; }
+
+@media (max-width: 700px) {
+  .book-detail { grid-template-columns: 1fr; }
+  .book-cover-big { width: 60%; justify-self: center; }
+}

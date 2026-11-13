@@ -12,6 +12,27 @@ export interface Product {
   stock_quantity: number;  // сколько на складе
   available: number;       // сколько можно купить (склад минус брони)
   last_updated: string;
+  avg_rating: number | null; // средняя оценка 1–5, null — отзывов ещё нет
+  review_count: number;      // сколько отзывов
+}
+
+// Фильтры каталога. Пустое значение (null или '') = фильтр не применяется.
+export interface ProductFilters {
+  category_id: number | null;
+  min_price: number | null;
+  max_price: number | null;
+  min_rating: number | null;
+  ordering: '' | 'price' | '-price' | '-rating';
+}
+
+export interface Review {
+  review_id: number;
+  customer_name: string;
+  rating: number;      // 1–5
+  comment: string;
+  created_at: string;
+  updated_at: string;
+  is_mine: boolean;    // true — этот отзыв написал тот, кто сейчас вошёл
 }
 
 export interface Category {

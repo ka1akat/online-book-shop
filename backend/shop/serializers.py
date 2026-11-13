@@ -1,9 +1,10 @@
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Avg
 from rest_framework import serializers
 
-from .models import Address, Category, Order, OrderItem, Payment, Product
+from .models import Address, Category, Order, OrderItem, Payment, Product, Review
 from .services import available_quantity
 
 
@@ -13,18 +14,35 @@ class ProductSerializer(serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(
         source="category", queryset=Category.objects.all(), required=False, allow_null=True
     )
+    # Средняя оценка и число отзывов. Их считает база (annotate во views.py)
+    avg_rating = serializers.SerializerMethodField()
+    review_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "product_id", "product_name", "author", "genre", "category_id", "category_name",
             "price", "stock_quantity", "available", "last_updated",
+            "avg_rating", "review_count",
         ]
 
     category_name = serializers.CharField(source="category.category_name", read_only=True, allow_null=True)
 
     def get_available(self, product):
         return max(available_quantity(product), 0)
+
+    def get_avg_rating(self, product):
+        # Если список пришёл без annotate (например, low-stock), считаем отдельным запросом
+        if hasattr(product, "avg_rating"):
+            value = product.avg_rating
+        else:
+            value = product.reviews.aggregate(avg=Avg("rating"))["avg"]
+        return round(value, 1) if value is not None else None
+
+    def get_review_count(self, product):
+        if hasattr(product, "review_count"):
+            return product.review_count
+        return product.reviews.count()
 
     def validate_price(self, value):
         if value <= 0:
@@ -35,6 +53,29 @@ class ProductSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Stock quantity cannot be negative.")
         return value
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    """Отзыв, который видят все: имя автора, звёзды, текст, дата."""
+
+    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    # is_mine = true, если отзыв написал тот, кто сейчас смотрит страницу.
+    # Email автора наружу не отдаём, только этот флажок.
+    is_mine = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ["review_id", "customer_name", "rating", "comment", "created_at", "updated_at", "is_mine"]
+
+    def get_is_mine(self, review):
+        return review.customer.email == self.context.get("email")
+
+
+class ReviewInputSerializer(serializers.Serializer):
+    """Проверка того, что прислал Angular при добавлении отзыва."""
+
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    comment = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

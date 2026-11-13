@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.db import transaction
 
-from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, StockLog, StockRequest
+from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest
 from .permissions import RoleAdminMixin, get_role
 from .services import ShopError, refund_payment
 
@@ -140,6 +140,16 @@ class StockRequestAdmin(RoleAdminMixin, admin.ModelAdmin):
     view_roles = ["warehouse", "support", "manager"]
     edit_roles = ["warehouse", "support", "manager"]
     list_display = ["request_id", "customer", "product", "requested_at", "notified"]
+
+
+@admin.register(Review)
+class ReviewAdmin(RoleAdminMixin, admin.ModelAdmin):
+    # Поддержка и менеджер видят отзывы и могут удалить грубый или спам
+    view_roles = ["support", "manager"]
+    edit_roles = ["support", "manager"]
+    list_display = ["review_id", "product", "customer", "rating", "created_at"]
+    list_filter = ["rating"]
+    search_fields = ["product__product_name", "customer__email", "comment"]
 
 
 @admin.register(Employee)
