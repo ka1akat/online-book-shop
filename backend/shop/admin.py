@@ -123,6 +123,10 @@ class PaymentAdmin(RoleAdminMixin, admin.ModelAdmin):
     @admin.action(description="Refund selected: other reason", permissions=["refund"])
     def refund_other(self, request, queryset):
         self._refund(request, queryset, "other")
+    
+    def has_delete_permission(self, request, obj=None):
+        # платежи не удаляются никем (даже admin): история денег должна сохраняться, для отмены есть возврат
+        return False
 
 
 @admin.register(StockLog)

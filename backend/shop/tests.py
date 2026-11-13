@@ -347,3 +347,25 @@ class RefundTests(APITestCase):
             self.assertEqual(self.refund_in_admin().status_code, 403)
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, "success")
+    
+    def test_manager_sees_payments_but_cannot_refund(self):
+        self.login_as("manager")
+        self.assertEqual(self.client.get("/admin/shop/payment/").status_code, 200)  # смотреть можно
+        self.refund_in_admin()
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, "success")  # возврат не выполнился
+
+    def test_payments_cannot_be_deleted_even_by_admin(self):
+        admin_user = get_user_model().objects.create_superuser("boss", password="x")
+        self.client.force_login(admin_user)
+        self.client.post("/admin/shop/payment/", {
+            "action": "delete_selected", "_selected_action": [self.payment.pk], "index": 0, "post": "yes",
+        })
+        self.assertTrue(Payment.objects.filter(pk=self.payment.pk).exists())
+
+    def test_admin_can_refund_in_admin(self):
+        admin_user = get_user_model().objects.create_superuser("boss", password="x")
+        self.client.force_login(admin_user)
+        self.assertEqual(self.refund_in_admin().status_code, 302)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, "refunded")
