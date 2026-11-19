@@ -43,9 +43,54 @@
           } @else {
             <p class="stock">{{ b.available }} in stock</p>
           }
-          <button class="btn" [disabled]="!canAdd(b)" (click)="cart.add(b)">Add to cart</button>
+          <div class="book-actions">
+            <button class="btn" [disabled]="!canAdd(b)" (click)="cart.add(b)">Add to cart</button>
+            @if (auth.user()) {
+              <button
+                type="button"
+                class="wishlist-btn"
+                [class.wishlist-on]="account.inWishlist(b.product_id)"
+                [disabled]="wishlistBusy()"
+                [attr.aria-pressed]="account.inWishlist(b.product_id)"
+                (click)="toggleWishlist(b)"
+              >
+                {{ account.inWishlist(b.product_id) ? '♥ In wishlist' : '♡ Add to wishlist' }}
+              </button>
+            } @else {
+              <a class="wishlist-btn" routerLink="/login">♡ Log in to save</a>
+            }
+          </div>
+          @if (wishlistError()) { <p class="alert alert-error">{{ wishlistError() }}</p> }
           @if (cart.quantityOf(b.product_id) > 0) {
             <a class="book-card-link" routerLink="/cart">In cart: {{ cart.quantityOf(b.product_id) }}</a>
+          }
+
+          <!-- FR-07: «Notify me» показывается только когда книги нет на складе -->
+          @if (b.stock_quantity === 0) {
+            <div class="notify-box">
+              @if (account.waitingFor(b.product_id)) {
+                <p class="alert alert-ok">
+                  You are on the waiting list. We will notify you when this book is back in stock.
+                </p>
+                <button type="button" class="btn btn-secondary" [disabled]="notifySending()" (click)="stopWaiting()">
+                  Stop waiting
+                </button>
+              } @else if (guestNotified()) {
+                <p class="alert alert-ok">Thank you! We will let {{ notifyEmail }} know when the book is back.</p>
+              } @else {
+                <p class="muted small">This book is sold out. Want to know when it is back?</p>
+                <form class="notify-form" (ngSubmit)="notifyMe()">
+                  @if (!auth.user()) {
+                    <input name="notifyEmail" type="email" autocomplete="email" placeholder="Your e-mail"
+                      [(ngModel)]="notifyEmail" />
+                  }
+                  <button class="btn" type="submit" [disabled]="notifySending()">
+                    {{ notifySending() ? 'Saving…' : '🔔 Notify me' }}
+                  </button>
+                </form>
+              }
+              @if (notifyError()) { <p class="alert alert-error">{{ notifyError() }}</p> }
+            </div>
           }
         </div>
       </div>

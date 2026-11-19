@@ -4,9 +4,9 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview, SupportTicket
+from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview, SupportTicket, WishlistItem
 from .permissions import RoleAdminMixin, get_role
-from .services import ShopError, refund_payment
+from .services import ShopError, notify_waiting_customers, refund_payment
 
 
 @admin.register(Product)
@@ -33,6 +33,9 @@ class ProductAdmin(RoleAdminMixin, admin.ModelAdmin):
                     change_amount=diff,
                     reason="delivery" if diff > 0 else "correction",
                 )
+        # Книга вернулась на склад — уведомляем тех, кто её ждал (FR-07, критерий 4)
+        if obj.stock_quantity > 0:
+            notify_waiting_customers(obj.pk)
 
 
 @admin.register(Customer)
@@ -140,7 +143,16 @@ class StockLogAdmin(RoleAdminMixin, admin.ModelAdmin):
 class StockRequestAdmin(RoleAdminMixin, admin.ModelAdmin):
     view_roles = ["warehouse", "support", "manager"]
     edit_roles = ["warehouse", "support", "manager"]
-    list_display = ["request_id", "customer", "product", "requested_at", "notified"]
+    list_display = ["request_id", "customer", "product", "requested_at", "notified", "notified_at"]
+    list_filter = ["notified"]
+
+
+@admin.register(WishlistItem)
+class WishlistItemAdmin(RoleAdminMixin, admin.ModelAdmin):
+    # Избранное — данные покупателя: сотрудники только смотрят (менеджер видит, что люди хотят купить)
+    view_roles = ["manager", "support"]
+    list_display = ["wishlist_item_id", "customer", "product", "added_at"]
+    search_fields = ["customer__email", "product__product_name"]
 
 
 @admin.register(Review)

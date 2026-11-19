@@ -5,6 +5,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../services/api.service';
+import { AccountService } from '../../services/account.service';
 import { AuthService } from '../../services/auth.service';
 import { CartService } from '../../services/cart.service';
 import { Product, Review } from '../../models';
@@ -20,6 +21,7 @@ export class BookComponent implements OnInit {
   private route = inject(ActivatedRoute);
   auth = inject(AuthService);
   cart = inject(CartService);
+  account = inject(AccountService);
 
   productId = '';
   book = signal<Product | null>(null);
@@ -34,6 +36,16 @@ export class BookComponent implements OnInit {
   sending = signal(false);
   formError = signal('');
   formDone = signal('');
+
+  // «Notify me»: книги нет на складе — покупатель встаёт в лист ожидания (FR-07)
+  notifyEmail = '';
+  notifySending = signal(false);
+  notifyError = signal('');
+  guestNotified = signal(false); // гость оставил email — показываем «мы сообщим»
+
+  // Избранное
+  wishlistBusy = signal(false);
+  wishlistError = signal('');
 
   // Уже есть мой отзыв? Тогда форма работает как «изменить отзыв»
   myReview = computed(() => (this.auth.user() ? this.reviews().find((r) => r.is_mine) ?? null : null));
@@ -90,6 +102,49 @@ export class BookComponent implements OnInit {
       error: (err) => {
         this.formError.set(errorText(err));
         this.sending.set(false);
+      },
+    });
+  }
+
+  notifyMe(): void {
+    const loggedIn = !!this.auth.user()?.token;
+    if (!loggedIn && !this.notifyEmail.trim()) {
+      this.notifyError.set('Enter your e-mail and we will let you know.');
+      return;
+    }
+    this.notifySending.set(true);
+    this.notifyError.set('');
+    this.account.notifyMe(this.productId, this.notifyEmail.trim()).subscribe({
+      next: () => {
+        this.notifySending.set(false);
+        if (!loggedIn) this.guestNotified.set(true);
+      },
+      error: (err) => {
+        this.notifySending.set(false);
+        this.notifyError.set(errorText(err));
+      },
+    });
+  }
+
+  stopWaiting(): void {
+    this.notifySending.set(true);
+    this.account.stopWaiting(this.productId).subscribe({
+      next: () => this.notifySending.set(false),
+      error: (err) => {
+        this.notifySending.set(false);
+        this.notifyError.set(errorText(err));
+      },
+    });
+  }
+
+  toggleWishlist(book: Product): void {
+    this.wishlistBusy.set(true);
+    this.wishlistError.set('');
+    this.account.toggleWishlist(book).subscribe({
+      next: () => this.wishlistBusy.set(false),
+      error: (err) => {
+        this.wishlistBusy.set(false);
+        this.wishlistError.set(errorText(err));
       },
     });
   }
