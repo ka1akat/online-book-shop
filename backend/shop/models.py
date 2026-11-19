@@ -270,6 +270,52 @@ class Review(models.Model):
     def __str__(self):
         return f"{self.product_id}: {self.rating}★ by {self.customer.full_name}"
 
+class SupportTicket(models.Model):
+    """SUPPORT_TICKETS — обращение покупателя в поддержку по его заказу."""
+
+    class Topic(models.TextChoices):
+        REFUND = "refund", "Refund"
+        DELIVERY = "delivery", "Delivery"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"  # покупатель отправил, никто ещё не смотрел
+        IN_PROGRESS = "in_progress", "In progress"  # сотрудник поддержки взял в работу
+        CLOSED = "closed", "Closed"  # вопрос решён
+
+    ticket_id = models.AutoField(primary_key=True)
+    # FK -> ORDERS. PROTECT: заказ с обращениями удалить нельзя (история сохраняется)
+    order = models.ForeignKey(
+        Order, on_delete=models.PROTECT, db_column="order_id", related_name="support_tickets"
+    )
+    # FK -> CUSTOMERS. Берётся из заказа, поэтому подделать чужого покупателя нельзя
+    customer = models.ForeignKey(
+        Customer, on_delete=models.PROTECT, db_column="customer_id", related_name="support_tickets"
+    )
+    topic = models.CharField(max_length=20, choices=Topic.choices)
+    message = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Кто из сотрудников взял обращение в работу или закрыл его
+    handled_by = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL, null=True, blank=True,
+        db_column="employee_id", related_name="handled_tickets",
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "support_tickets"
+        constraints = [
+            # CHECK: статус только из списка
+            models.CheckConstraint(
+                condition=models.Q(status__in=["open", "in_progress", "closed"]),
+                name="ticket_status_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Ticket {self.ticket_id} ({self.topic}, {self.status})"
+
 
 class StoreReview(models.Model):
     review_id = models.AutoField(primary_key=True)

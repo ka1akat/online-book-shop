@@ -4,7 +4,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review, SavedAddress, StoreReview } from '../models';
+import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review, SavedAddress, StoreReview, SupportRequest, SupportTicket, } from '../models';
 
 const API = 'http://localhost:8000/api';
 
@@ -110,6 +110,13 @@ export class ApiService {
 
   payOrder(id: number, cardNumber: string): Observable<Order> {
     return this.http.post<Order>(`${API}/orders/${id}/pay/`, { card_number: cardNumber });
+  }
+  
+  // Обращение в поддержку по заказу. Если покупатель вошёл, токен в заголовке Authorization
+  // подсказывает Django, чей это заказ; иначе нужен email из заказа в теле запроса.
+  sendSupportRequest(request: SupportRequest, token?: string): Observable<SupportTicket> {
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : undefined;
+    return this.http.post<SupportTicket>(`${API}/support/`, request, { headers });
   }
 
   register(form: RegisterForm): Observable<RegisteredUser> {

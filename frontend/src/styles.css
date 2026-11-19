@@ -616,4 +616,9 @@ nav {
 @media (max-width: 700px) {
   .book-detail { grid-template-columns: 1fr; }
   .book-cover-big { width: 60%; justify-self: center; }
+  
+/* Обращение в поддержку на странице заказа */
+  .support { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; }
+  .form textarea { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: var(--ink); background: #fff; resize: vertical; }
+  .form textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 }

@@ -107,6 +107,50 @@
             </div>
           }
         }
+        
+      <div class="support">
+          <button class="btn btn-secondary btn-wide" type="button" (click)="toggleSupport()">
+            {{ supportOpen() ? 'Hide support form' : 'Contact support about this order' }}
+          </button>
+          @if (supportOpen()) {
+            @if (supportTicket(); as t) {
+              <p class="alert alert-ok">Request #{{ t.ticket_id }} sent. Our support team will review it.</p>
+            } @else {
+              <form class="form" (ngSubmit)="sendSupport()">
+                <label>
+                  Topic
+                  <select name="topic" [(ngModel)]="supportTopic">
+                    <option value="refund">Refund</option>
+                    <option value="delivery">Delivery</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                @if (!user()) {
+                  <label>
+                    Your e-mail (the one used for the order)
+                    <input name="email" type="email" autocomplete="email" [(ngModel)]="supportEmail" />
+                  </label>
+                }
+                <label>
+                  Message
+                  <textarea
+                    name="message"
+                    rows="4"
+                    maxlength="1000"
+                    placeholder="Describe the problem"
+                    [(ngModel)]="supportMessage"
+                  ></textarea>
+                </label>
+                @if (supportError()) {
+                  <p class="alert alert-error">{{ supportError() }}</p>
+                }
+                <button class="btn btn-wide" type="submit" [disabled]="!canSendSupport()">
+                  {{ supportSending() ? 'Sending…' : 'Send to support' }}
+                </button>
+              </form>
+            }
+          }
+        </div>
       </div>
     </div>
   } @else if (!error()) {

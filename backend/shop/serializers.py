@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Avg
 from rest_framework import serializers
 
-from .models import Address, Category, Order, OrderItem, Payment, Product, Review, StoreReview
+from .models import Address, Category, Order, OrderItem, Payment, Product, Review, StoreReview, SupportTicket
 from .services import available_quantity
 
 
@@ -232,4 +232,19 @@ class RegisterSerializer(serializers.Serializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+class SupportRequestSerializer(serializers.Serializer):
+    """Что присылает Angular, когда покупатель пишет в поддержку."""
+
+    order_id = serializers.IntegerField(min_value=1)
+    topic = serializers.ChoiceField(choices=SupportTicket.Topic.choices)
+    message = serializers.CharField(min_length=5, max_length=1000)
+    # Нужен, только если покупатель не вошёл: вошедшего узнаём по токену
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+
+class SupportTicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportTicket
+        fields = ["ticket_id", "order_id", "topic", "status", "created_at"]
     

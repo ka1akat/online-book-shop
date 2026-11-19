@@ -7,18 +7,19 @@ from django.db import transaction
 from django.db.models import Avg, Count, F, Q, Sum
 from rest_framework import status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes, throttle_classes
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIView
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 
-from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview
+from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview, SupportTicket
 from .permissions import IsManager, IsWarehouse, IsWarehouseOrManager
 from .serializers import (
     AddressCreateSerializer, AddressSerializer, CategorySerializer, CreateOrderSerializer,
     LoginSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer, RegisterSerializer,
-    ReviewInputSerializer, ReviewSerializer, StoreReviewInputSerializer, StoreReviewSerializer,
+    ReviewInputSerializer, ReviewSerializer, StoreReviewInputSerializer, StoreReviewSerializer, SupportRequestSerializer, SupportTicketSerializer,
 )
 from .services import ShopError, create_order, expire_reservations, pay_order
 
@@ -409,3 +410,48 @@ def login_view(request):
     return Response(
         {"id": user.id, "full_name": user.first_name, "email": user.email, "token": make_token(user)}
     )
+
+class SupportThrottle(AnonRateThrottle):
+    """Не больше 10 обращений в час с одного адреса: защита формы от спама."""
+
+    scope = "support"
+    rate = "10/hour"
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([SupportThrottle])
+def support_view(request):
+    """Покупатель пишет в поддержку по своему заказу.
+
+    Кто пишет, определяется так: если есть токен входа, берём email аккаунта (email из тела
+    запроса игнорируется). Если токена нет, нужен email, указанный при заказе.
+    Заказ должен принадлежать этому email. Если заказа нет или он чужой, ответ один и тот же,
+    чтобы нельзя было выяснить, существует ли чужой заказ.
+    """
+    data = SupportRequestSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    values = data.validated_data
+
+    user = user_from_token(request)
+    email = (user.email if user else values.get("email", "")).strip().lower()
+    if not email:
+        return Response(
+            {"detail": "Please enter the e-mail that was used for the order."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    order = Order.objects.select_related("customer").filter(
+        pk=values["order_id"], customer__email=email
+    ).first()
+    if order is None:
+        return Response(
+            {"detail": "We could not find this order for this e-mail."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    ticket = SupportTicket.objects.create(
+        order=order, customer=order.customer, topic=values["topic"], message=values["message"],
+    )
+    return Response(SupportTicketSerializer(ticket).data, status=status.HTTP_201_CREATED)

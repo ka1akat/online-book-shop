@@ -94,6 +94,25 @@ export interface Order {
   delivery_fee: number;
 }
 
+export type SupportTopic = 'refund' | 'delivery' | 'other';
+
+// То, что Angular отправляет в POST /api/support/
+export interface SupportRequest {
+  order_id: number;
+  topic: SupportTopic;
+  message: string;
+  email?: string; // нужен только если покупатель не вошёл на сайт
+}
+
+// Ответ Django: обращение создано
+export interface SupportTicket {
+  ticket_id: number;
+  order_id: number;
+  topic: SupportTopic;
+  status: 'open' | 'in_progress' | 'closed';
+  created_at: string;
+}
+
 export interface CartLine {
   product: Product;
   quantity: number;

@@ -2,8 +2,9 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.utils import timezone
 
-from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview
+from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview, SupportTicket
 from .permissions import RoleAdminMixin, get_role
 from .services import ShopError, refund_payment
 
@@ -160,6 +161,60 @@ class StoreReviewAdmin(RoleAdminMixin, admin.ModelAdmin):
     list_filter = ["rating"]
     search_fields = ["customer__full_name", "customer__email", "comment"]
 
+@admin.register(SupportTicket)
+class SupportTicketAdmin(RoleAdminMixin, admin.ModelAdmin):
+    # support обрабатывает обращения; manager и finance только читают; склад не видит
+    edit_roles = ["support"]
+    view_roles = ["finance", "manager"]
+    list_display = ["ticket_id", "order", "customer", "topic", "status", "created_at", "handled_by"]
+    list_filter = ["status", "topic"]
+    # Текст покупателя менять нельзя: сотрудник меняет только статус
+    readonly_fields = ["order", "customer", "topic", "message", "created_at", "handled_by", "closed_at"]
+    actions = ["take_in_work", "close_selected"]
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if get_role(request.user) == "finance":
+            # финансист видит только обращения по возврату
+            queryset = queryset.filter(topic=SupportTicket.Topic.REFUND)
+        return queryset
+
+    def has_add_permission(self, request, obj=None):
+        return False  # обращения создаёт только покупатель через сайт
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # история обращений не удаляется
+
+    def has_handle_permission(self, request):
+        return get_role(request.user) in ["support", "admin"]
+
+    def save_model(self, request, obj, form, change):
+        if "status" in form.changed_data:
+            if obj.handled_by is None:
+                obj.handled_by = Employee.objects.filter(user=request.user).first()
+            obj.closed_at = timezone.now() if obj.status == SupportTicket.Status.CLOSED else None
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Take selected tickets into work", permissions=["handle"])
+    def take_in_work(self, request, queryset):
+        employee = Employee.objects.filter(user=request.user).first()
+        done = queryset.filter(status=SupportTicket.Status.OPEN).update(
+            status=SupportTicket.Status.IN_PROGRESS, handled_by=employee
+        )
+        self.message_user(request, f"Tickets taken into work: {done}", level=messages.SUCCESS)
+
+    @admin.action(description="Close selected tickets", permissions=["handle"])
+    def close_selected(self, request, queryset):
+        employee = Employee.objects.filter(user=request.user).first()
+        done = 0
+        for ticket in queryset.exclude(status=SupportTicket.Status.CLOSED):
+            ticket.status = SupportTicket.Status.CLOSED
+            ticket.closed_at = timezone.now()
+            if ticket.handled_by is None:
+                ticket.handled_by = employee
+            ticket.save()
+            done += 1
+        self.message_user(request, f"Tickets closed: {done}", level=messages.SUCCESS)
 
 @admin.register(Employee)
 class EmployeeAdmin(RoleAdminMixin, admin.ModelAdmin):
