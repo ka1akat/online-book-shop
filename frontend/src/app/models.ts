@@ -5,6 +5,8 @@ export interface Product {
   product_id: string;      // P-1001
   product_name: string;
   author: string;
+  description: string;
+  publication_year: number | null;
   genre: string;
   category_id: number | null;
   category_name: string | null;
@@ -33,6 +35,16 @@ export interface Review {
   created_at: string;
   updated_at: string;
   is_mine: boolean;    // true — этот отзыв написал тот, кто сейчас вошёл
+}
+
+export interface StoreReview {
+  review_id: number;
+  customer_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+  is_mine: boolean;
 }
 
 export interface Category {
@@ -99,4 +111,18 @@ export interface CustomerForm {
   intercom_code: string;
   floor: string;
   delivery_method: 'delivery';
+  saved_address_id?: number | null;
+  save_address?: boolean;
+}
+
+export interface SavedAddress {
+  address_id: number;
+  city: string;
+  full_address: string;
+  within_city: boolean;
+  entrance: string;
+  apartment: string;
+  intercom_code: string;
+  floor: string;
+  is_default: boolean;
 }

@@ -4,7 +4,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review } from '../models';
+import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review, SavedAddress, StoreReview } from '../models';
 
 const API = 'http://localhost:8000/api';
 
@@ -57,17 +57,38 @@ export class ApiService {
     );
   }
 
+  getStoreReviews(token?: string): Observable<StoreReview[]> {
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : undefined;
+    return this.http.get<StoreReview[]>(`${API}/store-reviews/`, { headers });
+  }
+
+  addStoreReview(rating: number, comment: string, token: string): Observable<StoreReview> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.post<StoreReview>(`${API}/store-reviews/`, { rating, comment }, { headers });
+  }
+
   getCategories(): Observable<Category[]> {
     return this.http.get<Category[]>(`${API}/categories/`);
   }
 
+  getSavedAddresses(email: string, token: string): Observable<SavedAddress[]> {
+    const params = new HttpParams().set('email', email);
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<SavedAddress[]>(`${API}/addresses/`, { params, headers });
+  }
 
-  createOrder(customer: CustomerForm, lines: CartLine[]): Observable<Order> {
-    return this.http.post<Order>(`${API}/orders/`, {
+
+  createOrder(customer: CustomerForm, lines: CartLine[], token?: string): Observable<Order> {
+    const payload: Record<string, unknown> = {
       customer: { full_name: customer.full_name, email: customer.email, phone: customer.phone },
       items: lines.map((l) => ({ product_id: l.product.product_id, quantity: l.quantity })),
       delivery_method: customer.delivery_method,
-      address: {
+      save_address: customer.save_address ?? false,
+    };
+    if (customer.saved_address_id) {
+      payload['saved_address_id'] = customer.saved_address_id;
+    } else {
+      payload['address'] = {
         city: customer.city,
         full_address: customer.full_address,
         within_city: customer.within_city,
@@ -75,8 +96,12 @@ export class ApiService {
         apartment: customer.apartment,
         intercom_code: customer.intercom_code,
         floor: customer.floor,
-      },
-    });
+      };
+    }
+    const headers = customer.saved_address_id && token
+      ? new HttpHeaders({ Authorization: `Bearer ${token}` })
+      : undefined;
+    return this.http.post<Order>(`${API}/orders/`, payload, { headers });
   }
 
   getOrder(id: number): Observable<Order> {

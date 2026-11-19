@@ -63,6 +63,7 @@ class Address(models.Model):
     floor = models.CharField(max_length=30, blank=True)
     intercom_code = models.CharField(max_length=30, blank=True)
     within_city = models.BooleanField(default=True)
+    is_saved = models.BooleanField(default=True)
     is_default = models.BooleanField(default=False)
 
     class Meta:
@@ -91,8 +92,10 @@ class Product(models.Model):
     product_id = models.CharField(max_length=6, primary_key=True)  # PK, формат P-1001
     product_name = models.CharField(max_length=100)
     author = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    publication_year = models.PositiveSmallIntegerField(null=True, blank=True)
     genre = models.CharField(max_length=30)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, null=True, blank=True, db_column="category_id", related_name="products")
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, db_column="category_id", related_name="products")
     price = models.DecimalField(max_digits=10, decimal_places=2)  # цена в KZT
     stock_quantity = models.IntegerField()  # сколько штук на складе
     last_updated = models.DateField(auto_now=True)  # обновляется при каждом сохранении
@@ -266,3 +269,28 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.product_id}: {self.rating}★ by {self.customer.full_name}"
+
+
+class StoreReview(models.Model):
+    review_id = models.AutoField(primary_key=True)
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, db_column="customer_id", related_name="store_reviews"
+    )
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "shop_store_reviews"
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name="store_rating_1_to_5",
+            ),
+            models.UniqueConstraint(fields=["customer"], name="one_store_review_per_customer"),
+        ]
+
+    def __str__(self):
+        return f"Store review {self.review_id}: {self.rating}/5"

@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.db import transaction
 
-from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest
+from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview
 from .permissions import RoleAdminMixin, get_role
 from .services import ShopError, refund_payment
 
@@ -150,6 +150,15 @@ class ReviewAdmin(RoleAdminMixin, admin.ModelAdmin):
     list_display = ["review_id", "product", "customer", "rating", "created_at"]
     list_filter = ["rating"]
     search_fields = ["product__product_name", "customer__email", "comment"]
+
+
+@admin.register(StoreReview)
+class StoreReviewAdmin(RoleAdminMixin, admin.ModelAdmin):
+    view_roles = ["support", "manager"]
+    edit_roles = ["support", "manager"]
+    list_display = ["review_id", "customer", "rating", "created_at"]
+    list_filter = ["rating"]
+    search_fields = ["customer__full_name", "customer__email", "comment"]
 
 
 @admin.register(Employee)

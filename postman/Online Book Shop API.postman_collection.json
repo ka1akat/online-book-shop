@@ -23,11 +23,40 @@
       ]
     },
     {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Monthly sales by category (manager only)",
+          "request": {
+            "auth": { "type": "basic", "basic": [
+              { "key": "username", "value": "{{staff_username}}", "type": "string" },
+              { "key": "password", "value": "{{staff_password}}", "type": "string" }
+            ] },
+            "method": "GET", "header": [],
+            "url": "{{base_url}}/api/reports/monthly-sales/?month={{report_month}}",
+            "description": "Returns units sold and revenue by category. Set report_month to YYYY-MM; omit it to use the current month."
+          }
+        },
+        {
+          "name": "Most requested books (warehouse or manager)",
+          "request": {
+            "auth": { "type": "basic", "basic": [
+              { "key": "username", "value": "{{staff_username}}", "type": "string" },
+              { "key": "password", "value": "{{staff_password}}", "type": "string" }
+            ] },
+            "method": "GET", "header": [],
+            "url": "{{base_url}}/api/reports/demand/",
+            "description": "Ranks books by the number of saved stock requests."
+          }
+        }
+      ]
+    },
+    {
       "name": "Delivery addresses (1,000 KZT inside any city, 1,500 KZT outside)",
       "item": [
         {
           "name": "List customer addresses",
-          "request": { "method": "GET", "header": [], "url": "{{base_url}}/api/addresses/?email={{customer_email}}" }
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }], "url": "{{base_url}}/api/addresses/?email={{customer_email}}", "description": "Requires a customer token for the same email. Returns saved addresses only." }
         },
         {
           "name": "Save customer address",
@@ -54,6 +83,34 @@
           }
         },
         {
+          "name": "Get book details",
+          "request": {
+            "method": "GET", "header": [],
+            "url": "{{base_url}}/api/products/{{product_id}}/",
+            "description": "Returns description, author, genre, first publication year, category, price, and availability."
+          }
+        },
+        {
+          "name": "List book reviews",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+            "url": "{{base_url}}/api/products/{{product_id}}/reviews/"
+          }
+        },
+        {
+          "name": "Write or update a book review (customer login required)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customer_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Great book!\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/api/products/{{product_id}}/reviews/"
+          }
+        },
+        {
           "name": "Add a book (staff only)",
           "request": {
             "auth": {
@@ -67,7 +124,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_id\": \"P-1006\",\n  \"product_name\": \"Dune\",\n  \"author\": \"Frank Herbert\",\n  \"genre\": \"Science Fiction\",\n  \"category_id\": 1,\n  \"price\": \"6000.00\",\n  \"stock_quantity\": 8\n}",
+              "raw": "{\n  \"product_id\": \"P-1006\",\n  \"product_name\": \"Dune\",\n  \"author\": \"Frank Herbert\",\n  \"description\": \"A desert planet, rival houses, and a young heir whose choices may change the future.\",\n  \"publication_year\": 1965,\n  \"genre\": \"Science Fiction\",\n  \"category_id\": 1,\n  \"price\": \"6000.00\",\n  \"stock_quantity\": 8\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/api/products/",
@@ -88,6 +145,27 @@
             "header": [],
             "url": "{{base_url}}/api/products/low-stock/",
             "description": "Returns books with fewer than 10 copies in stock."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shop reviews",
+      "item": [
+        {
+          "name": "List shop reviews",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/api/store-reviews/" }
+        },
+        {
+          "name": "Write or update a shop review (customer login required)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customer_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Great shopping experience.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/api/store-reviews/"
           }
         }
       ]
@@ -167,11 +245,26 @@
       ]
     }
   ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const response = pm.response.json();",
+          "if (response.token) pm.collectionVariables.set('customer_token', response.token);"
+        ]
+      }
+    }
+  ],
   "variable": [
     { "key": "base_url", "value": "http://127.0.0.1:8000" },
     { "key": "category_id", "value": "1" },
     { "key": "search", "value": "Dune" },
+    { "key": "product_id", "value": "P-1001" },
+    { "key": "report_month", "value": "2026-11" },
     { "key": "customer_email", "value": "test@example.com" },
+    { "key": "customer_token", "value": "" },
     { "key": "order_id", "value": "1" },
     { "key": "staff_username", "value": "" },
     { "key": "staff_password", "value": "" }

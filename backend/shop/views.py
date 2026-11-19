@@ -4,7 +4,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.core import signing
 from django.db import transaction
-from django.db.models import Avg, Count, F, Q
+from django.db.models import Avg, Count, F, Q, Sum
 from rest_framework import status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -13,12 +13,12 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Address, Category, Customer, Employee, Order, Product, Review, StockLog
-from .permissions import IsWarehouse, IsWarehouseOrManager
+from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview
+from .permissions import IsManager, IsWarehouse, IsWarehouseOrManager
 from .serializers import (
     AddressCreateSerializer, AddressSerializer, CategorySerializer, CreateOrderSerializer,
     LoginSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer, RegisterSerializer,
-    ReviewInputSerializer, ReviewSerializer,
+    ReviewInputSerializer, ReviewSerializer, StoreReviewInputSerializer, StoreReviewSerializer,
 )
 from .services import ShopError, create_order, expire_reservations, pay_order
 
@@ -80,6 +80,74 @@ class LowStockView(ListAPIView):
 
     def get_queryset(self):
         return Product.objects.filter(stock_quantity__lt=10).order_by("stock_quantity")
+
+
+@api_view(["GET"])
+@permission_classes([IsWarehouseOrManager])
+def demand_report_view(request):
+    """Return books ranked by the number of stock requests from customers."""
+    report = (
+        StockRequest.objects
+        .values(
+            "product_id",
+            "product__product_name",
+            "product__author",
+            "product__category__category_name",
+        )
+        .annotate(request_count=Count("request_id"))
+        .order_by("-request_count", "product__product_name", "product_id")
+    )
+    return Response([
+        {
+            "product_id": row["product_id"],
+            "product_name": row["product__product_name"],
+            "author": row["product__author"],
+            "category_name": row["product__category__category_name"],
+            "request_count": row["request_count"],
+        }
+        for row in report
+    ])
+
+
+@api_view(["GET"])
+@permission_classes([IsManager])
+def monthly_sales_report_view(request):
+    """Summarize paid book sales by category for a month (YYYY-MM)."""
+    from datetime import date
+    from django.utils import timezone
+
+    raw_month = request.query_params.get("month", "")
+    try:
+        month = date.fromisoformat(f"{raw_month}-01") if raw_month else timezone.localdate().replace(day=1)
+    except ValueError:
+        return Response({"month": "Use YYYY-MM format."}, status=status.HTTP_400_BAD_REQUEST)
+
+    paid_order_ids = Payment.objects.filter(
+        status=Payment.Status.SUCCESS,
+        paid_at__year=month.year,
+        paid_at__month=month.month,
+    ).values("order_id")
+    categories = (
+        OrderItem.objects.filter(order_id__in=paid_order_ids)
+        .values("product__category_id", "product__category__category_name")
+        .annotate(
+            units_sold=Sum("quantity"),
+            revenue=Sum(F("quantity") * F("unit_price")),
+        )
+        .order_by("product__category__category_name")
+    )
+    return Response({
+        "month": month.strftime("%Y-%m"),
+        "categories": [
+            {
+                "category_id": row["product__category_id"],
+                "category_name": row["product__category__category_name"],
+                "units_sold": row["units_sold"],
+                "revenue": row["revenue"],
+            }
+            for row in categories
+        ],
+    })
 
 
 class ProductListView(ListCreateAPIView):
@@ -194,6 +262,33 @@ def product_reviews_view(request, pk):
     )
 
 
+@api_view(["GET", "POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def store_reviews_view(request):
+    user = user_from_token(request)
+    if request.method == "GET":
+        reviews = StoreReview.objects.select_related("customer").all()
+        context = {"email": user.email.lower() if user else None}
+        return Response(StoreReviewSerializer(reviews, many=True, context=context).data)
+
+    if user is None:
+        return Response({"detail": "Please log in to leave a shop review."}, status=status.HTTP_401_UNAUTHORIZED)
+    data = StoreReviewInputSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    customer, _ = Customer.objects.get_or_create(
+        email=user.email.lower(), defaults={"full_name": user.first_name or user.email}
+    )
+    review, created = StoreReview.objects.update_or_create(
+        customer=customer,
+        defaults=data.validated_data,
+    )
+    return Response(
+        StoreReviewSerializer(review, context={"email": customer.email}).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
 class OrderDetailView(RetrieveAPIView):
     serializer_class = OrderSerializer
 
@@ -208,10 +303,24 @@ class OrderDetailView(RetrieveAPIView):
 def create_order_view(request):
     data = CreateOrderSerializer(data=request.data)
     data.is_valid(raise_exception=True)  # если поля неправильные — ответ 400 с ошибками
+    values = data.validated_data
+    saved_address = None
+    if values.get("saved_address_id"):
+        user = user_from_token(request)
+        if user is None or user.email.lower() != values["customer"]["email"].strip().lower():
+            return Response({"detail": "Log in with this email to use a saved address."}, status=status.HTTP_401_UNAUTHORIZED)
+        saved_address = Address.objects.filter(
+            address_id=values["saved_address_id"],
+            customer__email__iexact=values["customer"]["email"].strip(),
+            is_saved=True,
+        ).first()
+        if saved_address is None:
+            return Response({"detail": "Saved address not found for this customer."}, status=status.HTTP_404_NOT_FOUND)
     try:
         order = create_order(
-            data.validated_data["customer"], data.validated_data["items"],
-            data.validated_data["delivery_method"], data.validated_data.get("address"),
+            values["customer"], values["items"],
+            values["delivery_method"], values.get("address"), saved_address=saved_address,
+            save_address=values["save_address"],
         )
     except ShopError as e:
         return Response({"detail": e.message}, status=e.status_code)
@@ -232,7 +341,10 @@ def addresses_view(request):
         email = request.query_params.get("email", "").strip().lower()
         if not email:
             return Response({"email": "Email query parameter is required."}, status=400)
-        addresses = Address.objects.filter(customer__email=email).order_by("-is_default", "address_id")
+        user = user_from_token(request)
+        if user is None or user.email.lower() != email:
+            return Response({"detail": "Log in with this email to view saved addresses."}, status=401)
+        addresses = Address.objects.filter(customer__email=email, is_saved=True).order_by("-is_default", "address_id")
         return Response(AddressSerializer(addresses, many=True).data)
 
     data = AddressCreateSerializer(data=request.data)
@@ -248,6 +360,7 @@ def addresses_view(request):
         customer=customer,
         street=values["full_address"],
         building="",
+        is_saved=True,
         **values,
     )
     return Response(AddressSerializer(address).data, status=201)

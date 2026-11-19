@@ -14,6 +14,16 @@ BOOKS = [
     ("P-1005", "Harry Potter 1", "J. K. Rowling", "Fantasy", "Fantasy", 7000, 15),
 ]
 
+DESCRIPTIONS = {
+    "P-1001": "James Clear explains how small routines can build into lasting change. The book offers practical methods for creating helpful habits, changing your environment, and making progress easier to repeat.",
+    "P-1002": "After meeting a young prince in the desert, a stranded pilot hears about the prince's travels between planets. Their conversations explore friendship, responsibility, and how people learn to value one another.",
+    "P-1003": "Mukhtar Auezov's novel follows the poet and thinker Abai as he grows up on the Kazakh steppe. Through his life, the story portrays the customs, conflicts, and social changes of nineteenth-century Kazakh society.",
+    "P-1004": "Winston Smith lives in a state where the government monitors its citizens and rewrites the past. His quiet search for truth and personal freedom becomes a dangerous challenge to the ruling system.",
+    "P-1005": "On his eleventh birthday, Harry Potter learns that he is a wizard and begins life at Hogwarts. With new friends, he discovers the history of his family and a mystery connected to the school.",
+}
+
+PUBLICATION_YEARS = {"P-1001": 2018, "P-1002": 1943, "P-1003": 1942, "P-1004": 1949, "P-1005": 1997}
+
 
 class Command(BaseCommand):
     help = "Loads the original five demo books and their categories"
@@ -26,6 +36,8 @@ class Command(BaseCommand):
                 defaults={
                     "product_name": name,
                     "author": author,
+                    "description": DESCRIPTIONS[product_id],
+                    "publication_year": PUBLICATION_YEARS[product_id],
                     "genre": genre,
                     "category": category,
                     "price": price,

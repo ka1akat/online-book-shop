@@ -56,7 +56,7 @@
         </label>
         <label>
           Email
-          <input name="email" type="email" [(ngModel)]="customer.email" required email maxlength="100" />
+          <input name="email" type="email" [(ngModel)]="customer.email" (ngModelChange)="emailChanged()" (blur)="loadSavedAddresses()" required email maxlength="100" />
         </label>
         <label>
           Phone
@@ -64,22 +64,40 @@
         </label>
 
         <h2>Delivery address</h2>
-        <label>City<input name="city" [(ngModel)]="customer.city" required maxlength="100" /></label>
+        @if (savedAddresses().length > 0) {
+          <label>
+            Saved address
+            <select name="saved_address" [ngModel]="selectedSavedAddressId" (ngModelChange)="useSavedAddress($event)">
+              <option [ngValue]="null">Enter a new address</option>
+              @for (address of savedAddresses(); track address.address_id) {
+                <option [ngValue]="address.address_id">{{ address.city }}, {{ address.full_address }}</option>
+              }
+            </select>
+          </label>
+        }
+        @if (savedAddressMessage()) { <p class="muted small">{{ savedAddressMessage() }}</p> }
+        <label>City<input name="city" [(ngModel)]="customer.city" (ngModelChange)="editAddress()" required maxlength="100" /></label>
         <label>
           Location
-          <select name="within_city" [(ngModel)]="customer.within_city" required>
+          <select name="within_city" [(ngModel)]="customer.within_city" (ngModelChange)="editAddress()" required>
             <option [ngValue]="null" disabled>Choose a delivery area</option>
             <option [ngValue]="true">Inside {{ customer.city || 'the city' }} · 1,000 ₸</option>
             <option [ngValue]="false">Outside {{ customer.city || 'the city' }} · 1,500 ₸</option>
           </select>
         </label>
-        <label>Full address<input name="full_address" [(ngModel)]="customer.full_address" required maxlength="300" placeholder="Street, building, block" /></label>
+        <label>Full address<input name="full_address" [(ngModel)]="customer.full_address" (ngModelChange)="editAddress()" required maxlength="300" placeholder="Street, building, block" /></label>
         <div class="address-row">
-          <label>Entrance (optional)<input name="entrance" [(ngModel)]="customer.entrance" maxlength="30" /></label>
-          <label>Apartment (optional)<input name="apartment" [(ngModel)]="customer.apartment" maxlength="30" /></label>
-          <label>Intercom code (optional)<input name="intercom_code" [(ngModel)]="customer.intercom_code" maxlength="30" /></label>
-          <label>Floor (optional)<input name="floor" [(ngModel)]="customer.floor" maxlength="30" /></label>
+          <label>Entrance (optional)<input name="entrance" [(ngModel)]="customer.entrance" (ngModelChange)="editAddress()" maxlength="30" /></label>
+          <label>Apartment (optional)<input name="apartment" [(ngModel)]="customer.apartment" (ngModelChange)="editAddress()" maxlength="30" /></label>
+          <label>Intercom code (optional)<input name="intercom_code" [(ngModel)]="customer.intercom_code" (ngModelChange)="editAddress()" maxlength="30" /></label>
+          <label>Floor (optional)<input name="floor" [(ngModel)]="customer.floor" (ngModelChange)="editAddress()" maxlength="30" /></label>
         </div>
+        @if (selectedSavedAddressId === null) {
+          <label class="save-address-label">
+            <input type="checkbox" name="save_address" [(ngModel)]="customer.save_address" />
+            Save this address for next time
+          </label>
+        }
         @if (error()) {
           <p class="alert alert-error">{{ error() }}</p>
         }

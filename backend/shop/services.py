@@ -41,7 +41,7 @@ def available_quantity(product):
 
 
 @transaction.atomic
-def create_order(customer_data, items, delivery_method=Order.DeliveryMethod.DELIVERY, address_data=None):
+def create_order(customer_data, items, delivery_method=Order.DeliveryMethod.DELIVERY, address_data=None, saved_address=None, save_address=False):
     """
     Шаг 1 главного действия: покупатель оформляет заказ.
     Книги бронируются на 15 минут, склад пока НЕ уменьшается.
@@ -60,16 +60,23 @@ def create_order(customer_data, items, delivery_method=Order.DeliveryMethod.DELI
         },
     )
 
-    if not address_data:
+    if not address_data and saved_address is None:
         raise ShopError("Укажите адрес доставки.")
-    Address.objects.filter(customer=customer, is_default=True).update(is_default=False)
-    address = Address.objects.create(
-        customer=customer,
-        is_default=True,
-        street=address_data["full_address"],
-        building="",
-        **address_data,
-    )
+    if saved_address is not None:
+        if saved_address.customer_id != customer.customer_id:
+            raise ShopError("Saved address does not belong to this customer.", 404)
+        address = saved_address
+    else:
+        if save_address:
+            Address.objects.filter(customer=customer, is_default=True).update(is_default=False)
+        address = Address.objects.create(
+            customer=customer,
+            is_saved=save_address,
+            is_default=save_address,
+            street=address_data["full_address"],
+            building="",
+            **address_data,
+        )
 
     order = Order.objects.create(
         customer=customer,

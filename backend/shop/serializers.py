@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Avg
 from rest_framework import serializers
 
-from .models import Address, Category, Order, OrderItem, Payment, Product, Review
+from .models import Address, Category, Order, OrderItem, Payment, Product, Review, StoreReview
 from .services import available_quantity
 
 
@@ -12,7 +12,7 @@ class ProductSerializer(serializers.ModelSerializer):
     # Поле, которого нет в таблице: считаем, сколько можно купить с учётом броней
     available = serializers.SerializerMethodField()
     category_id = serializers.PrimaryKeyRelatedField(
-        source="category", queryset=Category.objects.all(), required=False, allow_null=True
+        source="category", queryset=Category.objects.all(), required=True, allow_null=False
     )
     # Средняя оценка и число отзывов. Их считает база (annotate во views.py)
     avg_rating = serializers.SerializerMethodField()
@@ -21,7 +21,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "product_id", "product_name", "author", "genre", "category_id", "category_name",
+            "product_id", "product_name", "author", "description", "publication_year", "genre", "category_id", "category_name",
             "price", "stock_quantity", "available", "last_updated",
             "avg_rating", "review_count",
         ]
@@ -74,6 +74,23 @@ class ReviewSerializer(serializers.ModelSerializer):
 class ReviewInputSerializer(serializers.Serializer):
     """Проверка того, что прислал Angular при добавлении отзыва."""
 
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    comment = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
+
+
+class StoreReviewSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    is_mine = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StoreReview
+        fields = ["review_id", "customer_name", "rating", "comment", "created_at", "updated_at", "is_mine"]
+
+    def get_is_mine(self, review):
+        return review.customer.email == self.context.get("email")
+
+
+class StoreReviewInputSerializer(serializers.Serializer):
     rating = serializers.IntegerField(min_value=1, max_value=5)
     comment = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
 
@@ -170,10 +187,14 @@ class CreateOrderSerializer(serializers.Serializer):
     items = ItemInputSerializer(many=True, allow_empty=False)
     delivery_method = serializers.ChoiceField(choices=Order.DeliveryMethod.choices, default=Order.DeliveryMethod.DELIVERY)
     address = AddressInputSerializer(required=False)
+    saved_address_id = serializers.IntegerField(required=False, min_value=1)
+    save_address = serializers.BooleanField(required=False, default=False)
 
     def validate(self, attrs):
-        if not attrs.get("address"):
+        if not attrs.get("address") and not attrs.get("saved_address_id"):
             raise serializers.ValidationError({"address": "Address is required for delivery."})
+        if attrs.get("address") and attrs.get("saved_address_id"):
+            raise serializers.ValidationError({"address": "Choose a saved address or enter a new one."})
         return attrs
 
 

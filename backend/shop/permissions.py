@@ -78,3 +78,7 @@ class IsWarehouse(HasRole):
 
 class IsWarehouseOrManager(HasRole):
     allowed_roles = ["warehouse", "manager"]
+
+
+class IsManager(HasRole):
+    allowed_roles = ["manager"]

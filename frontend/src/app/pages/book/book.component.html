@@ -17,6 +17,15 @@
           <span class="muted small">{{ b.category_name || 'Uncategorized' }}</span>
           <h1>{{ b.product_name }}</h1>
           <p class="muted">by {{ b.author }}</p>
+          @if (b.description) {
+            <p class="book-description">{{ b.description }}</p>
+          }
+          <div class="book-meta">
+            <span><strong>Genre:</strong> {{ b.genre }}</span>
+            @if (b.publication_year) {
+              <span><strong>First published:</strong> {{ b.publication_year }}</span>
+            }
+          </div>
 
           <div class="rating-summary">
             <app-stars [rating]="b.avg_rating" />
@@ -31,6 +40,8 @@
           <strong class="book-detail-price">{{ b.price | number: '1.0-0' }} ₸</strong>
           @if (b.available === 0) {
             <p class="stock stock-out">Out of stock</p>
+          } @else {
+            <p class="stock">{{ b.available }} in stock</p>
           }
           <button class="btn" [disabled]="!canAdd(b)" (click)="cart.add(b)">Add to cart</button>
           @if (cart.quantityOf(b.product_id) > 0) {
