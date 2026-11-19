@@ -10,6 +10,7 @@ db.sqlite3
 # Angular
 node_modules/
 dist/
+staticfiles/
 .angular/
 
 # Mac
