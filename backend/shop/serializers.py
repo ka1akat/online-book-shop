@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Avg
 from rest_framework import serializers
 
-from .models import Address, Category, Order, OrderItem, Payment, Product, Review, StoreReview, SupportTicket
+from .models import Address, Category, Order, OrderItem, Payment, Product, Review, StockRequest, StoreReview, SupportTicket
 from .services import available_quantity
 
 
@@ -247,4 +247,32 @@ class SupportTicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupportTicket
         fields = ["ticket_id", "order_id", "topic", "status", "created_at"]
-    
+
+
+class StockRequestSerializer(serializers.ModelSerializer):
+    """Одна строка листа ожидания: какую книгу ждёт покупатель и вернулась ли она."""
+
+    product_id = serializers.CharField(source="product.product_id", read_only=True)
+    product_name = serializers.CharField(source="product.product_name", read_only=True)
+    author = serializers.CharField(source="product.author", read_only=True)
+    in_stock = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StockRequest
+        fields = [
+            "request_id", "product_id", "product_name", "author",
+            "requested_at", "notified", "notified_at", "is_read", "in_stock",
+        ]
+
+    def get_in_stock(self, stock_request):
+        return stock_request.product.stock_quantity > 0
+
+
+class NotifyInputSerializer(serializers.Serializer):
+    # Нужен, только если покупатель не вошёл: вошедшего узнаём по токену
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+
+class WishlistInputSerializer(serializers.Serializer):
+    product_id = serializers.CharField(max_length=6)
+

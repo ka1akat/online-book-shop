@@ -4,7 +4,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review, SavedAddress, StoreReview, SupportRequest, SupportTicket, } from '../models';
+import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review, SavedAddress, StockRequestNotice, StoreReview, SupportRequest, SupportTicket, } from '../models';
 
 const API = 'http://localhost:8000/api';
 
@@ -117,6 +117,53 @@ export class ApiService {
   sendSupportRequest(request: SupportRequest, token?: string): Observable<SupportTicket> {
     const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : undefined;
     return this.http.post<SupportTicket>(`${API}/support/`, request, { headers });
+  }
+
+  // ---------- Лист ожидания «Notify me» и уведомления (FR-07) ----------
+
+  // Вошедшего покупателя Django узнаёт по токену; гость передаёт email
+  notifyMe(productId: string, email: string, token?: string): Observable<StockRequestNotice> {
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : undefined;
+    return this.http.post<StockRequestNotice>(`${API}/products/${productId}/notify/`, { email }, { headers });
+  }
+
+  stopWaiting(productId: string, token: string): Observable<void> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.delete<void>(`${API}/products/${productId}/notify/`, { headers });
+  }
+
+  getNotifications(token: string): Observable<StockRequestNotice[]> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<StockRequestNotice[]>(`${API}/notifications/`, { headers });
+  }
+
+  markNotificationsRead(token: string): Observable<{ marked_read: number }> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.post<{ marked_read: number }>(`${API}/notifications/read/`, {}, { headers });
+  }
+
+  // ---------- Мои заказы ----------
+
+  getMyOrders(token: string): Observable<Order[]> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<Order[]>(`${API}/my-orders/`, { headers });
+  }
+
+  // ---------- Wishlist (избранное) ----------
+
+  getWishlist(token: string): Observable<Product[]> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<Product[]>(`${API}/wishlist/`, { headers });
+  }
+
+  addToWishlist(productId: string, token: string): Observable<unknown> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.post(`${API}/wishlist/`, { product_id: productId }, { headers });
+  }
+
+  removeFromWishlist(productId: string, token: string): Observable<void> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.delete<void>(`${API}/wishlist/${productId}/`, { headers });
   }
 
   register(form: RegisterForm): Observable<RegisteredUser> {

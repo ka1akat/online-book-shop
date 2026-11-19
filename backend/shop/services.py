@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models import F, Sum
 from django.utils import timezone
 
-from .models import Address, Customer, Order, OrderItem, Payment, Product, StockLog
+from .models import Address, Customer, Order, OrderItem, Payment, Product, StockLog, StockRequest
 
 
 class ShopError(Exception):
@@ -232,6 +232,7 @@ def refund_payment(payment_id, employee=None, changed_by="finance", reason="othe
             change_amount=item.quantity,
             reason="refund",
         )
+        notify_waiting_customers(item.product_id)
 
     payment.status = Payment.Status.REFUNDED
     payment.refund_reason = reason
@@ -240,3 +241,17 @@ def refund_payment(payment_id, employee=None, changed_by="finance", reason="othe
     order.status = Order.Status.CANCELLED
     order.save(update_fields=["status"])
     return payment
+
+
+def notify_waiting_customers(product_id):
+    """
+    FR-07, критерий 4: книга снова на складе -> всем, кто нажал «Notify me», ставим notified = true.
+    Покупатель увидит это на странице уведомлений (GET /api/notifications/).
+    Вызывается после каждого увеличения склада: админка, возврат платежа.
+    Возвращает, сколько покупателей получили уведомление.
+    """
+    if not Product.objects.filter(pk=product_id, stock_quantity__gt=0).exists():
+        return 0
+    return StockRequest.objects.filter(product_id=product_id, notified=False).update(
+        notified=True, notified_at=timezone.now(), is_read=False
+    )

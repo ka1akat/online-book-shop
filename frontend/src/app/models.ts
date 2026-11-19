@@ -145,3 +145,17 @@ export interface SavedAddress {
   floor: string;
   is_default: boolean;
 }
+
+// Строка листа ожидания «Notify me» (таблица STOCK_REQUESTS).
+// notified = true — книга вернулась на склад: это и есть уведомление для покупателя.
+export interface StockRequestNotice {
+  request_id: number;
+  product_id: string;
+  product_name: string;
+  author: string;
+  requested_at: string;
+  notified: boolean;
+  notified_at: string | null;
+  is_read: boolean;
+  in_stock: boolean;
+}

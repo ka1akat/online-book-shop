@@ -13,6 +13,19 @@
       }
     </a>
     @if (auth.user(); as user) {
+      <a routerLink="/my-orders" routerLinkActive="active">My orders</a>
+      <a routerLink="/wishlist" routerLinkActive="active" class="cart-link">
+        Wishlist
+        @if (account.wishlist().length > 0) {
+          <span class="cart-count">{{ account.wishlist().length }}</span>
+        }
+      </a>
+      <a routerLink="/notifications" routerLinkActive="active" class="cart-link" aria-label="Notifications">
+        🔔
+        @if (account.unreadCount() > 0) {
+          <span class="cart-count">{{ account.unreadCount() }}</span>
+        }
+      </a>
       <span class="nav-user">{{ user.full_name }}</span>
       <button class="nav-logout" type="button" (click)="auth.logout()">Log out</button>
     } @else {

@@ -14,12 +14,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
-from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview, SupportTicket
+from .models import Address, Category, Customer, Employee, Order, OrderItem, Payment, Product, Review, StockLog, StockRequest, StoreReview, SupportTicket, WishlistItem
 from .permissions import IsManager, IsWarehouse, IsWarehouseOrManager
 from .serializers import (
     AddressCreateSerializer, AddressSerializer, CategorySerializer, CreateOrderSerializer,
     LoginSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer, RegisterSerializer,
     ReviewInputSerializer, ReviewSerializer, StoreReviewInputSerializer, StoreReviewSerializer, SupportRequestSerializer, SupportTicketSerializer,
+    NotifyInputSerializer, StockRequestSerializer, WishlistInputSerializer,
 )
 from .services import ShopError, create_order, expire_reservations, pay_order
 
@@ -455,3 +456,164 @@ def support_view(request):
         order=order, customer=order.customer, topic=values["topic"], message=values["message"],
     )
     return Response(SupportTicketSerializer(ticket).data, status=status.HTTP_201_CREATED)
+
+
+# ---------- Покупатель, который вошёл на сайт ----------
+
+def customer_for_user(user):
+    """Строка в CUSTOMERS для аккаунта сайта. Если покупатель ещё ничего не заказывал — создаём её."""
+    customer, _ = Customer.objects.get_or_create(
+        email=user.email.lower(), defaults={"full_name": user.first_name or user.email}
+    )
+    return customer
+
+
+def login_required_response(action):
+    return Response({"detail": f"Please log in to {action}."}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+# ---------- FR-07: лист ожидания «Notify me» и уведомления ----------
+
+@api_view(["POST", "DELETE"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def product_notify_view(request, pk):
+    """
+    POST — покупатель нажал «Notify me» на книге, которой нет на складе.
+           Тот же покупатель + та же книга второй раз -> всё равно одна строка (UNIQUE).
+    DELETE — покупатель больше не ждёт книгу (нужен вход).
+    """
+    try:
+        product = Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return Response({"detail": "Book not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    user = user_from_token(request)
+
+    if request.method == "DELETE":
+        if user is None:
+            return login_required_response("manage your waiting list")
+        StockRequest.objects.filter(customer__email=user.email.lower(), product=product).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # Критерий 1: ждать можно только книгу, которой нет на складе
+    if product.stock_quantity > 0:
+        return Response(
+            {"detail": "This book is in stock, you can order it now."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    data = NotifyInputSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    if user:
+        customer = customer_for_user(user)  # email из аккаунта, email из тела запроса не важен
+    else:
+        email = data.validated_data.get("email", "").strip().lower()
+        if not email:
+            return Response({"email": "Please enter your e-mail."}, status=status.HTTP_400_BAD_REQUEST)
+        customer, _ = Customer.objects.get_or_create(email=email, defaults={"full_name": email})
+
+    # Критерий 2: get_or_create — если строка уже есть, новую не создаём
+    stock_request, created = StockRequest.objects.get_or_create(customer=customer, product=product)
+    if not created and stock_request.notified:
+        # Книгу уже привозили, а она снова закончилась: человек снова ждёт
+        stock_request.notified = False
+        stock_request.notified_at = None
+        stock_request.is_read = False
+        stock_request.save(update_fields=["notified", "notified_at", "is_read"])
+    return Response(
+        StockRequestSerializer(stock_request).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def notifications_view(request):
+    """Мой лист ожидания: сначала книги, которые уже вернулись (это и есть уведомления), потом те, что ещё ждём."""
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("see your notifications")
+    requests = (
+        StockRequest.objects.filter(customer__email=user.email.lower())
+        .select_related("product")
+        .order_by("-notified", F("notified_at").desc(nulls_last=True), "-requested_at")
+    )
+    return Response(StockRequestSerializer(requests, many=True).data)
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def notifications_read_view(request):
+    """Покупатель открыл страницу уведомлений — отмечаем их прочитанными, счётчик в меню обнуляется."""
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("see your notifications")
+    updated = StockRequest.objects.filter(
+        customer__email=user.email.lower(), notified=True, is_read=False
+    ).update(is_read=True)
+    return Response({"marked_read": updated})
+
+
+# ---------- Мои заказы ----------
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def my_orders_view(request):
+    """Все заказы покупателя, который вошёл. Покупатель определяется по токену, а не по email из запроса."""
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("see your orders")
+    expire_reservations()  # просроченные брони сразу показываются как cancelled
+    orders = (
+        Order.objects.filter(customer__email=user.email.lower())
+        .select_related("customer", "address")
+        .prefetch_related("items__product", "payments")
+        .order_by("-order_date")
+    )
+    return Response(OrderSerializer(orders, many=True).data)
+
+
+# ---------- Wishlist (избранное) ----------
+
+@api_view(["GET", "POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def wishlist_view(request):
+    """GET — мои отложенные книги. POST {product_id} — добавить книгу (второй раз не дублируется)."""
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("use your wishlist")
+    customer = customer_for_user(user)
+
+    if request.method == "GET":
+        ids = list(customer.wishlist_items.order_by("-added_at").values_list("product_id", flat=True))
+        products = {p.product_id: p for p in products_with_rating().select_related("category").filter(pk__in=ids)}
+        # порядок как в избранном: последние добавленные сверху
+        return Response(ProductSerializer([products[i] for i in ids if i in products], many=True).data)
+
+    data = WishlistInputSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    product = Product.objects.filter(pk=data.validated_data["product_id"]).first()
+    if product is None:
+        return Response({"detail": "Book not found."}, status=status.HTTP_404_NOT_FOUND)
+    _, created = WishlistItem.objects.get_or_create(customer=customer, product=product)
+    return Response(
+        {"product_id": product.product_id, "in_wishlist": True},
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
+@api_view(["DELETE"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def wishlist_item_view(request, pk):
+    """Убрать книгу из моего избранного."""
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("use your wishlist")
+    WishlistItem.objects.filter(customer__email=user.email.lower(), product_id=pk).delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
