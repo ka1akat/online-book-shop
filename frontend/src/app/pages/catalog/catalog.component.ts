@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 import { ApiService, errorText } from '../../services/api.service';
 import { CartService } from '../../services/cart.service';
 import { Category, Product, ProductFilters } from '../../models';
@@ -15,6 +16,7 @@ import { StarsComponent } from '../../stars.component';
 export class CatalogComponent implements OnInit {
   private api = inject(ApiService);
   cart = inject(CartService);
+  auth = inject(AuthService);
 
   products = signal<Product[]>([]);
   loading = signal(true);
