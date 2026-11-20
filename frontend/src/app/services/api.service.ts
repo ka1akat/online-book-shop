@@ -6,7 +6,10 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review, SavedAddress, StockRequestNotice, StoreReview, SupportRequest, SupportTicket, } from '../models';
 
-const API = 'http://localhost:8000/api';
+import { environment } from '../../environments/environment';
+
+// localhost:8000 на своём компьютере, адрес Render на сервере (src/environments/)
+const API = environment.apiUrl;
 
 export interface RegisterForm {
   full_name: string;

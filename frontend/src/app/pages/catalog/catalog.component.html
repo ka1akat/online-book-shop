@@ -107,7 +107,7 @@
           </div>
 
           @if (cart.quantityOf(p.product_id) > 0) {
-            <a class="book-card-link" routerLink="/cart">
+            <a class="book-card-link" [routerLink]="auth.user() ? '/account/cart' : '/cart'">
               In cart: {{ cart.quantityOf(p.product_id) }}
             </a>
           }

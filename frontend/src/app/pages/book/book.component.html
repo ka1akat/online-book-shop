@@ -62,7 +62,7 @@
           </div>
           @if (wishlistError()) { <p class="alert alert-error">{{ wishlistError() }}</p> }
           @if (cart.quantityOf(b.product_id) > 0) {
-            <a class="book-card-link" routerLink="/cart">In cart: {{ cart.quantityOf(b.product_id) }}</a>
+            <a class="book-card-link" [routerLink]="auth.user() ? '/account/cart' : '/cart'">In cart: {{ cart.quantityOf(b.product_id) }}</a>
           }
 
           <!-- FR-07: «Notify me» показывается только когда книги нет на складе -->

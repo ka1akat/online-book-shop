@@ -1,0 +1,59 @@
+# Render Blueprint: описание всего сайта на сервере в одном файле.
+# Render читает его при "New -> Blueprint" и сам создаёт 3 части:
+#   1) базу PostgreSQL, 2) бэкенд Django (API + админка), 3) фронтенд Angular (статический сайт).
+# Документация: Render Docs -> "Blueprint YAML Reference".
+
+databases:
+  - name: bookshop-db            # имя базы внутри Render (на него ссылается бэкенд ниже)
+    plan: free                   # бесплатная: 1 GB, работает 30 дней после создания
+    databaseName: bookshop
+    user: bookshop
+
+services:
+  # ---------- Бэкенд: Django REST API + /admin/ ----------
+  - type: web
+    name: online-book-shop-api   # адрес будет https://online-book-shop-api.onrender.com
+    runtime: python
+    plan: free                   # засыпает через 15 минут без посетителей, просыпается ~1 минуту
+    rootDir: backend             # команды ниже выполняются в папке backend/
+    buildCommand: ./build.sh     # установка библиотек, collectstatic, migrate, демо-книги
+    startCommand: gunicorn config.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL        # строку подключения Render берёт из базы bookshop-db
+        fromDatabase:
+          name: bookshop-db
+          property: connectionString
+      - key: SECRET_KEY          # Render сам придумает длинный случайный ключ
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
+      # Фронтенд с этих адресов может обращаться к API (CORS)
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://online-book-shop-xkbi.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://online-book-shop-api.onrender.com
+      # Администратор для /admin/: логин и email заданы здесь, пароль Render спросит при создании
+      - key: DJANGO_SUPERUSER_USERNAME
+        value: admin
+      - key: DJANGO_SUPERUSER_EMAIL
+        value: admin@bookshop.kz
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+
+  # ---------- Фронтенд: Angular ----------
+  - type: web
+    name: online-book-shop       # адрес: https://online-book-shop-xkbi.onrender.com (Render добавил -xkbi, имя было занято)
+    runtime: static              # просто файлы, сервер не нужен — бесплатно и не засыпает
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist/frontend/browser
+    routes:
+      # Angular сам решает, какую страницу показать (/catalog, /books/P-1001...),
+      # поэтому на любой адрес отдаём index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html

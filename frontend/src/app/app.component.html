@@ -6,29 +6,22 @@
   <nav>
     <a routerLink="/catalog" routerLinkActive="active">Catalog</a>
     <a routerLink="/shop-reviews" routerLinkActive="active">Shop reviews</a>
-    <a routerLink="/cart" routerLinkActive="active" class="cart-link">
-      Cart
-      @if (cart.count() > 0) {
-        <span class="cart-count">{{ cart.count() }}</span>
-      }
-    </a>
     @if (auth.user(); as user) {
-      <a routerLink="/my-orders" routerLinkActive="active">My orders</a>
-      <a routerLink="/wishlist" routerLinkActive="active" class="cart-link">
-        Wishlist
-        @if (account.wishlist().length > 0) {
-          <span class="cart-count">{{ account.wishlist().length }}</span>
+      <!-- Корзина, заказы, избранное и уведомления — внутри личного кабинета -->
+      <a routerLink="/account" routerLinkActive="active" class="cart-link nav-account">
+        <span class="nav-avatar">{{ user.full_name.charAt(0) || '?' }}</span>
+        {{ user.full_name }}
+        @if (cart.count() + account.unreadCount() > 0) {
+          <span class="cart-count">{{ cart.count() + account.unreadCount() }}</span>
         }
       </a>
-      <a routerLink="/notifications" routerLinkActive="active" class="cart-link" aria-label="Notifications">
-        🔔
-        @if (account.unreadCount() > 0) {
-          <span class="cart-count">{{ account.unreadCount() }}</span>
-        }
-      </a>
-      <span class="nav-user">{{ user.full_name }}</span>
-      <button class="nav-logout" type="button" (click)="auth.logout()">Log out</button>
     } @else {
+      <a routerLink="/cart" routerLinkActive="active" class="cart-link">
+        Cart
+        @if (cart.count() > 0) {
+          <span class="cart-count">{{ cart.count() }}</span>
+        }
+      </a>
       <a routerLink="/login" routerLinkActive="active">Log in</a>
     }
   </nav>

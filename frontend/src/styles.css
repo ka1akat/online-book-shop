@@ -658,3 +658,36 @@ nav {
   .order-row-right, .wish-row-right { justify-content: flex-start; }
 }
 
+/* ---------- Личный кабинет ---------- */
+.account { display: grid; grid-template-columns: 260px 1fr; gap: 28px; align-items: start; }
+.account-side { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 18px; padding: 20px; }
+.account-user { display: flex; align-items: center; gap: 12px; }
+.account-user p { margin: 2px 0 0; word-break: break-all; }
+.account-avatar, .nav-avatar {
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink); font-weight: 600;
+}
+.account-avatar { width: 44px; height: 44px; font-size: 18px; flex: none; }
+.nav-avatar { width: 24px; height: 24px; font-size: 12px; margin-right: 6px; }
+.nav-account { display: inline-flex; align-items: center; }
+.account-nav { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.account-nav a {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 8px; color: var(--ink); text-decoration: none;
+}
+.account-nav a:hover { background: var(--bg); }
+.account-nav a.active { background: var(--bg); color: var(--accent); font-weight: 600; }
+.account-main { min-width: 0; }
+.account-main .page { padding: 0; }
+/* в кабинете меньше места: корзина и форма заказа идут друг под другом */
+.account-main .two-col { grid-template-columns: 1fr; }
+.account-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.account-card { display: flex; flex-direction: column; gap: 6px; color: inherit; text-decoration: none; }
+.account-card:hover { border-color: var(--accent); }
+.account-card-num { font-size: 32px; font-weight: 600; color: var(--accent); }
+.account-card .badge { align-self: flex-start; }
+@media (max-width: 760px) {
+  .account { grid-template-columns: 1fr; }
+  .account-side { position: static; }
+}
+

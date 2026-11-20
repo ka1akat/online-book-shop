@@ -25,7 +25,7 @@ export class LoginComponent {
     this.api.login(this.email, this.password).subscribe({
       next: (user) => {
         this.auth.setUser(user);
-        this.router.navigate(['/catalog']);
+        this.router.navigate(['/account']); // после входа — в личный кабинет
       },
       error: (err) => {
         this.error.set(errorText(err));
