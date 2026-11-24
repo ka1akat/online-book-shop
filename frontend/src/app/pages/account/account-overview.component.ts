@@ -25,6 +25,10 @@ import { CartService } from '../../services/cart.service';
         <span class="account-card-num">{{ ordersCount() ?? '…' }}</span>
         <span>{{ ordersCount() === 1 ? 'order' : 'orders' }}</span>
       </a>
+      <a class="panel account-card" routerLink="/account/tickets">
+        <span class="account-card-num">{{ ticketsCount() ?? '…' }}</span>
+        <span>{{ ticketsCount() === 1 ? 'support request' : 'support requests' }}</span>
+      </a>
       <a class="panel account-card" routerLink="/account/wishlist">
         <span class="account-card-num">{{ account.wishlist().length }}</span>
         <span>in wishlist</span>
@@ -46,6 +50,7 @@ export class AccountOverviewComponent implements OnInit {
   cart = inject(CartService);
 
   ordersCount = signal<number | null>(null);
+  ticketsCount = signal<number | null>(null);
   waitingCount = computed(() => this.account.notifications().filter((n) => !n.notified).length);
 
   ngOnInit(): void {
@@ -53,6 +58,7 @@ export class AccountOverviewComponent implements OnInit {
     const token = this.auth.user()?.token;
     if (token) {
       this.api.getMyOrders(token).subscribe({ next: (list) => this.ordersCount.set(list.length), error: () => {} });
+      this.api.getMyTickets(token).subscribe({ next: (list) => this.ticketsCount.set(list.length), error: () => {} });
     }
   }
 }

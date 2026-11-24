@@ -24,7 +24,7 @@ import { Order } from '../../models';
       <p class="alert alert-error">{{ error() }}</p>
     } @else {
       @for (o of orders(); track o.order_id) {
-        <a class="panel order-row" [routerLink]="['/orders', o.order_id]">
+        <a class="panel order-row" [routerLink]="['/orders', o.public_code]">
           <div>
             <strong>Order #{{ o.order_id }}</strong>
             <p class="muted small">

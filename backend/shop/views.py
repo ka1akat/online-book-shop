@@ -20,8 +20,9 @@ from .serializers import (
     AddressCreateSerializer, AddressSerializer, CategorySerializer, CreateOrderSerializer,
     LoginSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer, RegisterSerializer,
     ReviewInputSerializer, ReviewSerializer, StoreReviewInputSerializer, StoreReviewSerializer, SupportRequestSerializer, SupportTicketSerializer,
-    NotifyInputSerializer, StockRequestSerializer, WishlistInputSerializer,
+    NotifyInputSerializer, StockRequestSerializer, WishlistInputSerializer, CustomerTicketSerializer,
 )
+from .moderation import check_support_message
 from .services import ShopError, create_order, expire_reservations, pay_order
 
 
@@ -293,6 +294,9 @@ def store_reviews_view(request):
 
 class OrderDetailView(RetrieveAPIView):
     serializer_class = OrderSerializer
+    # Заказ открывается по секретному коду (UUID), а не по номеру 1, 2, 3...
+    lookup_field = "public_code"
+    lookup_url_kwarg = "code"
 
     def get_queryset(self):
         expire_reservations()
@@ -369,11 +373,15 @@ def addresses_view(request):
 
 
 @api_view(["POST"])
-def pay_order_view(request, pk):
+def pay_order_view(request, code):
     data = PayOrderSerializer(data=request.data)
     data.is_valid(raise_exception=True)
+    # Оплачивается заказ по секретному коду; по чужому номеру оплатить нельзя
+    found = Order.objects.filter(public_code=code).first()
+    if found is None:
+        return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
     try:
-        order = pay_order(pk, data.validated_data["card_number"])
+        order = pay_order(found.pk, data.validated_data["card_number"])
     except ShopError as e:
         return Response({"detail": e.message}, status=e.status_code)
     return Response(OrderSerializer(order).data)
@@ -435,27 +443,69 @@ def support_view(request):
     data.is_valid(raise_exception=True)
     values = data.validated_data
 
-    user = user_from_token(request)
-    email = (user.email if user else values.get("email", "")).strip().lower()
-    if not email:
-        return Response(
-            {"detail": "Please enter the e-mail that was used for the order."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    # Проверка текста ДО сохранения: мат, оскорбления, ссылки, набор букв.
+    # Если проверка не пройдена, обращение в базу не попадает.
+    problem = check_support_message(values["message"])
+    if problem:
+        return Response({"detail": problem}, status=status.HTTP_400_BAD_REQUEST)
 
-    order = Order.objects.select_related("customer").filter(
-        pk=values["order_id"], customer__email=email
-    ).first()
+    not_found = Response(
+        {"detail": "We could not find this order. Please check the link or the e-mail."},
+        status=status.HTTP_404_NOT_FOUND,
+    )
+    if "order_code" in values:
+        # Секретный код заказа сам доказывает, что заказ ваш: email не нужен
+        order = Order.objects.select_related("customer").filter(public_code=values["order_code"]).first()
+    else:
+        # Заказ указан номером: нужен email заказа или вход в аккаунт
+        user = user_from_token(request)
+        email = (user.email if user else values.get("email", "")).strip().lower()
+        if not email:
+            return Response(
+                {"detail": "Please enter the e-mail that was used for the order."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        order = Order.objects.select_related("customer").filter(
+            pk=values["order_id"], customer__email=email
+        ).first()
     if order is None:
-        return Response(
-            {"detail": "We could not find this order for this e-mail."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
+        return not_found
 
     ticket = SupportTicket.objects.create(
         order=order, customer=order.customer, topic=values["topic"], message=values["message"],
     )
     return Response(SupportTicketSerializer(ticket).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def my_tickets_view(request):
+    """Все обращения вошедшего покупателя со статусом и ответом поддержки.
+
+    Покупатель определяется по токену, а не по email из запроса, поэтому чужие
+    обращения и чужие ответы получить нельзя."""
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("see your support requests")
+    tickets = (
+        SupportTicket.objects.filter(customer__email=user.email.lower())
+        .select_related("order")
+        .order_by("-created_at")
+    )
+    return Response(CustomerTicketSerializer(tickets, many=True).data)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def order_tickets_view(request, code):
+    """Обращения по одному заказу. Секретный код заказа доказывает, что вы его владелец."""
+    order = Order.objects.filter(public_code=code).first()
+    if order is None:
+        return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+    tickets = order.support_tickets.select_related("order").order_by("-created_at")
+    return Response(CustomerTicketSerializer(tickets, many=True).data)
 
 
 # ---------- Покупатель, который вошёл на сайт ----------

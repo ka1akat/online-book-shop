@@ -6,6 +6,7 @@
   <nav>
     <a routerLink="/catalog" routerLinkActive="active">Catalog</a>
     <a routerLink="/shop-reviews" routerLinkActive="active">Shop reviews</a>
+    <a routerLink="/about" routerLinkActive="active">About us</a>
     @if (auth.user(); as user) {
       <!-- Корзина, заказы, избранное и уведомления — внутри личного кабинета -->
       <a routerLink="/account" routerLinkActive="active" class="cart-link nav-account">

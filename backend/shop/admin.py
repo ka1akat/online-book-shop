@@ -178,10 +178,11 @@ class SupportTicketAdmin(RoleAdminMixin, admin.ModelAdmin):
     # support обрабатывает обращения; manager и finance только читают; склад не видит
     edit_roles = ["support"]
     view_roles = ["finance", "manager"]
-    list_display = ["ticket_id", "order", "customer", "topic", "status", "created_at", "handled_by"]
+    list_display = ["ticket_id", "order", "customer", "topic", "status", "created_at", "replied_at", "handled_by"]
     list_filter = ["status", "topic"]
-    # Текст покупателя менять нельзя: сотрудник меняет только статус
-    readonly_fields = ["order", "customer", "topic", "message", "created_at", "handled_by", "closed_at"]
+    # Текст покупателя менять нельзя: сотрудник меняет только статус и пишет ответ (staff_reply).
+    # Ответ могут писать только support и admin, остальные роли видят его только для чтения.
+    readonly_fields = ["order", "customer", "topic", "message", "created_at", "handled_by", "closed_at", "replied_at"]
     actions = ["take_in_work", "close_selected"]
 
     def get_queryset(self, request):
@@ -201,6 +202,14 @@ class SupportTicketAdmin(RoleAdminMixin, admin.ModelAdmin):
         return get_role(request.user) in ["support", "admin"]
 
     def save_model(self, request, obj, form, change):
+        if "staff_reply" in form.changed_data and obj.staff_reply.strip():
+            # Сотрудник написал ответ: запоминаем время и кто ответил.
+            # Новое обращение с ответом сразу считается «в работе».
+            obj.replied_at = timezone.now()
+            if obj.handled_by is None:
+                obj.handled_by = Employee.objects.filter(user=request.user).first()
+            if obj.status == SupportTicket.Status.OPEN:
+                obj.status = SupportTicket.Status.IN_PROGRESS
         if "status" in form.changed_data:
             if obj.handled_by is None:
                 obj.handled_by = Employee.objects.filter(user=request.user).first()

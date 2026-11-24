@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 
@@ -130,6 +132,9 @@ class Order(models.Model):
     DELIVERY_FEE_OUTSIDE_CITY = 1500
 
     order_id = models.AutoField(primary_key=True)
+    # Секретный код заказа: длинный случайный UUID. Страница заказа и оплата открываются по нему,
+    # а не по номеру, поэтому чужой заказ нельзя подобрать перебором 1, 2, 3...
+    public_code = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     # FK -> CUSTOMERS. PROTECT = ON DELETE RESTRICT: нельзя удалить покупателя, у которого есть заказы
     customer = models.ForeignKey(
         Customer, on_delete=models.PROTECT, db_column="customer_id", related_name="orders"
@@ -304,6 +309,9 @@ class SupportTicket(models.Model):
         db_column="employee_id", related_name="handled_tickets",
     )
     closed_at = models.DateTimeField(null=True, blank=True)
+    # Ответ сотрудника поддержки. Его видит только владелец заказа
+    staff_reply = models.TextField(blank=True, default="")
+    replied_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "support_tickets"

@@ -26,6 +26,7 @@ import { CartService } from '../../services/cart.service';
             Cart @if (cart.count() > 0) { <span class="cart-count">{{ cart.count() }}</span> }
           </a>
           <a routerLink="/account/orders" routerLinkActive="active">My orders</a>
+          <a routerLink="/account/tickets" routerLinkActive="active">My requests</a>
           <a routerLink="/account/wishlist" routerLinkActive="active">
             Wishlist @if (account.wishlist().length > 0) { <span class="cart-count">{{ account.wishlist().length }}</span> }
           </a>

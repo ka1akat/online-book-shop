@@ -81,6 +81,7 @@ export interface Payment {
 
 export interface Order {
   order_id: number;
+  public_code: string; // секретный код заказа: по нему открывается страница заказа и оплата
   customer_id: number;
   customer_name: string;
   order_date: string;
@@ -98,10 +99,9 @@ export type SupportTopic = 'refund' | 'delivery' | 'other';
 
 // То, что Angular отправляет в POST /api/support/
 export interface SupportRequest {
-  order_id: number;
+  order_code: string; // секретный код заказа: он доказывает, что заказ ваш, email не нужен
   topic: SupportTopic;
   message: string;
-  email?: string; // нужен только если покупатель не вошёл на сайт
 }
 
 // Ответ Django: обращение создано
@@ -111,6 +111,19 @@ export interface SupportTicket {
   topic: SupportTopic;
   status: 'open' | 'in_progress' | 'closed';
   created_at: string;
+}
+
+// Обращение глазами покупателя: статус и ответ поддержки (GET /api/my-tickets/ и /api/orders/<код>/tickets/)
+export interface CustomerTicket {
+  ticket_id: number;
+  order_id: number;
+  order_code: string;
+  topic: SupportTopic;
+  message: string;
+  status: 'open' | 'in_progress' | 'closed';
+  created_at: string;
+  staff_reply: string; // пусто, пока поддержка не ответила
+  replied_at: string | null;
 }
 
 export interface CartLine {

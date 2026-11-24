@@ -125,7 +125,7 @@ export class CartComponent {
     this.api.createOrder(this.customer, this.cart.lines(), this.auth.user()?.token).subscribe({
       next: (order) => {
         this.cart.clear();
-        this.router.navigate(['/orders', order.order_id]); // переходим к оплате
+        this.router.navigate(['/orders', order.public_code]); // переходим к оплате по секретной ссылке
       },
       error: (err) => {
         this.error.set(errorText(err));
