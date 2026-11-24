@@ -1,12 +1,11 @@
 // Страница заказа: таймер брони 15 минут, оплата картой и история попыток оплаты.
-// и форма обращения в поддержку.
+// форма обращения в поддержку и ответы поддержки по этому заказу.
 import { Component, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../services/api.service';
-import { AuthService } from '../../services/auth.service';
-import { Order, SupportTicket, SupportTopic } from '../../models';
+import { CustomerTicket, Order, SupportTicket, SupportTopic } from '../../models';
 
 @Component({
   selector: 'app-order',
@@ -16,10 +15,8 @@ import { Order, SupportTicket, SupportTopic } from '../../models';
 export class OrderComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
 
-  private auth = inject(AuthService);
-  user = this.auth.user; // кто вошёл на сайт (или null)
-
-  // id приходит из адреса /orders/:id (включено withComponentInputBinding в app.config.ts)
+  // Секретный код заказа приходит из адреса /orders/:id (включено withComponentInputBinding в app.config.ts).
+  // Название параметра осталось id, но внутри теперь длинный случайный код, а не номер заказа.
   id = input.required<string>();
 
   order = signal<Order | null>(null);
@@ -35,7 +32,9 @@ export class OrderComponent implements OnInit, OnDestroy {
   supportTicket = signal<SupportTicket | null>(null); // не null, когда обращение уже отправлено
   supportTopic: SupportTopic = 'refund';
   supportMessage = '';
-  supportEmail = '';
+
+  // Обращения по этому заказу с ответами поддержки
+  tickets = signal<CustomerTicket[]>([]);
 
   private now = signal(Date.now());
   private timer?: ReturnType<typeof setInterval>;
@@ -54,6 +53,7 @@ export class OrderComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.load();
+    this.loadTickets();
     this.timer = setInterval(() => {
       this.now.set(Date.now());
       const o = this.order();
@@ -67,16 +67,27 @@ export class OrderComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
-    this.api.getOrder(Number(this.id())).subscribe({
+    this.api.getOrder(this.id()).subscribe({
       next: (o) => this.order.set(o),
       error: (err) => this.error.set(errorText(err)),
     });
   }
 
+  loadTickets(): void {
+    this.api.getOrderTickets(this.id()).subscribe({
+      next: (list) => this.tickets.set(list),
+      error: () => {}, // если не получилось, страница заказа всё равно работает
+    });
+  }
+
+  statusLabel(status: CustomerTicket['status']): string {
+    return status === 'open' ? 'Open' : status === 'in_progress' ? 'In progress' : 'Closed';
+  }
+
   pay(): void {
     this.paying.set(true);
     this.payError.set('');
-    this.api.payOrder(Number(this.id()), this.cardNumber).subscribe({
+    this.api.payOrder(this.id(), this.cardNumber).subscribe({
       next: (o) => {
         this.order.set(o);
         this.paying.set(false);
@@ -100,33 +111,29 @@ export class OrderComponent implements OnInit, OnDestroy {
     this.supportError.set('');
   }
 
-  // Кнопка «Send» активна, когда есть кому ответить (email или вход) и текст не пустой
+  // Кнопка «Send» активна, когда текст не пустой. Email не нужен: заказ определяется секретным кодом
   canSendSupport(): boolean {
-    const knowsCustomer = !!this.auth.user() || this.supportEmail.includes('@');
-    return knowsCustomer && this.supportMessage.trim().length >= 5 && !this.supportSending();
+    return this.supportMessage.trim().length >= 10 && !this.supportSending();
   }
 
   sendSupport(): void {
     this.supportSending.set(true);
     this.supportError.set('');
-    const user = this.auth.user();
     this.api
-      .sendSupportRequest(
-        {
-          order_id: Number(this.id()),
-          topic: this.supportTopic,
-          message: this.supportMessage.trim(),
-          // Вошедшего покупателя Django узнаёт по токену, email не нужен
-          email: user ? undefined : this.supportEmail.trim(),
-        },
-        user?.token,
-      )
+      .sendSupportRequest({
+        order_code: this.id(),
+        topic: this.supportTopic,
+        message: this.supportMessage.trim(),
+      })
       .subscribe({
         next: (ticket) => {
           this.supportTicket.set(ticket);
           this.supportSending.set(false);
           this.supportMessage = '';
+          this.loadTickets(); // новое обращение сразу появляется в списке ниже
         },
+        // Если текст не прошёл проверку (грубые слова, ссылки), Django вернёт понятное сообщение.
+        // Введённый текст остаётся в форме, его можно поправить и отправить снова.
         error: (err) => {
           this.supportError.set(errorText(err));
           this.supportSending.set(false);

@@ -58,8 +58,8 @@ class ShopFlowTests(APITestCase):
             self.assertEqual(float(response.data["total"]), 5000 + expected_fee)
 
     def test_successful_payment_runs_whole_transaction(self):
-        order_id = self.make_order().data["order_id"]
-        r = self.client.post(f"/api/orders/{order_id}/pay/", {"card_number": GOOD_CARD}, format="json")
+        code = self.make_order().data["public_code"]
+        r = self.client.post(f"/api/orders/{code}/pay/", {"card_number": GOOD_CARD}, format="json")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data["status"], "paid")
         self.book.refresh_from_db()
@@ -68,19 +68,20 @@ class ShopFlowTests(APITestCase):
         self.assertEqual(Payment.objects.get().status, "success")
 
     def test_failed_then_successful_payment(self):
-        order_id = self.make_order().data["order_id"]
-        r = self.client.post(f"/api/orders/{order_id}/pay/", {"card_number": BAD_CARD}, format="json")
+        code = self.make_order().data["public_code"]
+        r = self.client.post(f"/api/orders/{code}/pay/", {"card_number": BAD_CARD}, format="json")
         self.assertEqual(r.status_code, 402)
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock_quantity, 2)  # при ошибке склад не тронут
-        self.client.post(f"/api/orders/{order_id}/pay/", {"card_number": GOOD_CARD}, format="json")
+        self.client.post(f"/api/orders/{code}/pay/", {"card_number": GOOD_CARD}, format="json")
         statuses = list(Payment.objects.order_by("payment_id").values_list("status", flat=True))
         self.assertEqual(statuses, ["failed", "success"])  # 1 заказ — 2 оплаты (1:M)
 
     def test_expired_reservation_cannot_be_paid(self):
-        order_id = self.make_order().data["order_id"]
+        created = self.make_order().data
+        order_id, code = created["order_id"], created["public_code"]
         Order.objects.filter(pk=order_id).update(reserved_until=timezone.now() - timedelta(minutes=1))
-        r = self.client.post(f"/api/orders/{order_id}/pay/", {"card_number": GOOD_CARD}, format="json")
+        r = self.client.post(f"/api/orders/{code}/pay/", {"card_number": GOOD_CARD}, format="json")
         self.assertEqual(r.status_code, 409)
         self.assertEqual(Order.objects.get(pk=order_id).status, "cancelled")
 
@@ -263,8 +264,8 @@ class RefundTests(APITestCase):
             product_id="P-1004", product_name="1984", author="George Orwell",
             genre="Dystopia", price=5000, stock_quantity=2,
         )
-        self.order_id = self.make_order()
-        self.client.post(f"/api/orders/{self.order_id}/pay/", {"card_number": GOOD_CARD}, format="json")
+        self.order_id, self.order_code = self.make_order()
+        self.client.post(f"/api/orders/{self.order_code}/pay/", {"card_number": GOOD_CARD}, format="json")
         self.payment = Payment.objects.get(order_id=self.order_id, status="success")
         # после оплаты на складе 1 штука
 
@@ -274,7 +275,7 @@ class RefundTests(APITestCase):
             "address": TEST_ADDRESS,
             "items": [{"product_id": "P-1004", "quantity": 1}],
         }, format="json")
-        return r.data["order_id"]
+        return r.data["order_id"], r.data["public_code"]
 
     def login_as(self, role):
         user = get_user_model().objects.create_user(role, password="x", is_staff=True)
@@ -297,8 +298,8 @@ class RefundTests(APITestCase):
         self.assertEqual((log.change_amount, log.changed_by), (1, "finance"))
 
     def test_failed_payment_cannot_be_refunded(self):
-        order_id = self.make_order(email="dana@example.com")
-        self.client.post(f"/api/orders/{order_id}/pay/", {"card_number": BAD_CARD}, format="json")
+        order_id, code = self.make_order(email="dana@example.com")
+        self.client.post(f"/api/orders/{code}/pay/", {"card_number": BAD_CARD}, format="json")
         failed = Payment.objects.get(status="failed")
         with self.assertRaises(ShopError):
             refund_payment(failed.pk)

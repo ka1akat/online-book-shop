@@ -120,7 +120,7 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            "order_id", "customer_id", "customer_name", "order_date", "status",
+            "order_id", "public_code", "customer_id", "customer_name", "order_date", "status",
             "reserved_until", "total", "delivery_fee", "items", "payments", "delivery_method", "address",
         ]
 
@@ -236,17 +236,40 @@ class LoginSerializer(serializers.Serializer):
 class SupportRequestSerializer(serializers.Serializer):
     """Что присылает Angular, когда покупатель пишет в поддержку."""
 
-    order_id = serializers.IntegerField(min_value=1)
+    # Заказ можно указать секретным кодом (страница заказа) или номером + email (как раньше)
+    order_code = serializers.UUIDField(required=False)
+    order_id = serializers.IntegerField(min_value=1, required=False)
     topic = serializers.ChoiceField(choices=SupportTicket.Topic.choices)
-    message = serializers.CharField(min_length=5, max_length=1000)
-    # Нужен, только если покупатель не вошёл: вошедшего узнаём по токену
+    # Пустой и короткий текст разрешаем на уровне поля: понятное сообщение дает check_support_message
+    message = serializers.CharField(max_length=1000, allow_blank=True)
+    # Нужен, только если заказ указан номером и покупатель не вошёл: вошедшего узнаём по токену
     email = serializers.EmailField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if "order_code" not in attrs and "order_id" not in attrs:
+            raise serializers.ValidationError({"order_code": "Order is required."})
+        return attrs
 
 
 class SupportTicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupportTicket
         fields = ["ticket_id", "order_id", "topic", "status", "created_at"]
+
+
+class CustomerTicketSerializer(serializers.ModelSerializer):
+    """Обращение глазами покупателя: тема, текст, статус и ответ поддержки.
+
+    Внутренние данные (кто из сотрудников обработал) покупателю не отдаём."""
+
+    order_code = serializers.UUIDField(source="order.public_code", read_only=True)
+
+    class Meta:
+        model = SupportTicket
+        fields = [
+            "ticket_id", "order_id", "order_code", "topic", "message", "status",
+            "created_at", "staff_reply", "replied_at",
+        ]
 
 
 class StockRequestSerializer(serializers.ModelSerializer):

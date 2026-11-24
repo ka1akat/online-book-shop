@@ -4,7 +4,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CartLine, Category, CustomerForm, Order, Product, ProductFilters, Review, SavedAddress, StockRequestNotice, StoreReview, SupportRequest, SupportTicket, } from '../models';
+import { CartLine, Category, CustomerForm, CustomerTicket, Order, Product, ProductFilters, Review, SavedAddress, StockRequestNotice, StoreReview, SupportRequest, SupportTicket, } from '../models';
 
 import { environment } from '../../environments/environment';
 
@@ -107,14 +107,26 @@ export class ApiService {
     return this.http.post<Order>(`${API}/orders/`, payload, { headers });
   }
 
-  getOrder(id: number): Observable<Order> {
-    return this.http.get<Order>(`${API}/orders/${id}/`);
+  // Заказ открывается по секретному коду (UUID), а не по номеру
+  getOrder(code: string): Observable<Order> {
+    return this.http.get<Order>(`${API}/orders/${code}/`);
   }
 
-  payOrder(id: number, cardNumber: string): Observable<Order> {
-    return this.http.post<Order>(`${API}/orders/${id}/pay/`, { card_number: cardNumber });
+  payOrder(code: string, cardNumber: string): Observable<Order> {
+    return this.http.post<Order>(`${API}/orders/${code}/pay/`, { card_number: cardNumber });
   }
-  
+
+  // Обращения по одному заказу: секретный код заказа доказывает, что вы его владелец
+  getOrderTickets(code: string): Observable<CustomerTicket[]> {
+    return this.http.get<CustomerTicket[]>(`${API}/orders/${code}/tickets/`);
+  }
+
+  // «Мои обращения»: все обращения вошедшего покупателя со статусом и ответом поддержки
+  getMyTickets(token: string): Observable<CustomerTicket[]> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<CustomerTicket[]>(`${API}/my-tickets/`, { headers });
+  }
+
   // Обращение в поддержку по заказу. Если покупатель вошёл, токен в заголовке Authorization
   // подсказывает Django, чей это заказ; иначе нужен email из заказа в теле запроса.
   sendSupportRequest(request: SupportRequest, token?: string): Observable<SupportTicket> {

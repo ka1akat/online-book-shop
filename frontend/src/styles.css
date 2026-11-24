@@ -691,3 +691,12 @@ nav {
   .account-side { position: static; }
 }
 
+
+/* Обращения в поддержку: список на странице заказа и в «Моих обращениях», ответ поддержки */
+.ticket { display: flex; flex-direction: column; gap: 8px; }
+.ticket + .ticket { margin-top: 12px; }
+.ticket p { margin: 0; white-space: pre-line; }
+.ticket-reply { background: #e1f1e6; border-radius: 8px; padding: 10px 12px; }
+.ticket-reply p { margin: 4px 0 0; }
+.about .panel { margin-bottom: 16px; }
+.about ul { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
