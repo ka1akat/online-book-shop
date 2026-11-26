@@ -66,7 +66,18 @@
       <div class="podium-row">
         @for (place of podiumOrder(); track place.book.product_id) {
           <div class="podium-place podium-{{ place.rank }}">
-            <ng-container *ngTemplateOutlet="bookCard; context: { $implicit: place.book }" />
+            <!-- Небольшая карточка: место, название, звёзды, оценка и число отзывов -->
+            <a class="podium-card" [routerLink]="['/books', place.book.product_id]">
+              <span class="podium-rank">#{{ place.rank }}</span>
+              <strong class="podium-title">{{ place.book.product_name }}</strong>
+              <span class="podium-author">{{ place.book.author }}</span>
+              <app-stars [rating]="place.book.avg_rating" />
+              <span class="podium-score">
+                {{ place.book.avg_rating | number: '1.1-1' }} ·
+                {{ place.book.review_count }} {{ place.book.review_count === 1 ? 'review' : 'reviews' }}
+              </span>
+              <span class="podium-price">{{ place.book.price | number: '1.0-0' }} ₸</span>
+            </a>
             <div class="podium-step"><span>{{ place.rank }}</span></div>
           </div>
         }
