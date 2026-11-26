@@ -133,7 +133,7 @@
     </a>
 
     <div class="book-card-info">
-      <span>{{ p.category_name || 'Uncategorized' }}</span>
+      <span>{{ p.category_name }}</span>
       @if (p.available === 0) {
         <span class="stock stock-out">Out of stock</span>
       } @else if (p.available < 10) {

@@ -25,7 +25,7 @@ import { StarsComponent } from './stars.component';
           <span class="muted small">no reviews yet</span>
         }
       </span>
-      <span class="muted small">{{ b.category_name || 'Uncategorized' }}</span>
+      <span class="muted small">{{ b.category_name }}</span>
       <div class="tile-bottom">
         <strong>{{ b.price | number: '1.0-0' }} ₸</strong>
         @if (b.available > 0) {
