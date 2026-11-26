@@ -723,12 +723,34 @@ nav {
 }
 .chip:hover { border-color: var(--accent); }
 .chip-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.home-top { max-width: 1120px; margin: 48px auto 0; }
-.home-top-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-.home-top-head h2 { margin: 0; }
 .similar { margin-top: 48px; }
 .prefs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
 .prefs .category-chips { margin: 0; }
 .prefs-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .prefs-actions .btn { margin-top: 0; }
+
+/* ---------- Top rating: подиум в каталоге ---------- */
+.podium { margin: 8px 0 40px; }
+.podium-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+.podium-head h2 { margin: 0; }
+.podium-row { display: flex; justify-content: center; align-items: flex-end; gap: 20px; }
+.podium-place { flex: 0 1 300px; min-width: 0; display: flex; flex-direction: column; }
+.podium-place .book-card { margin-top: 0; }
+.podium-1 .book-card { background: #fbe9dd; }
+.podium-2 .book-card { background: #eef1f4; }
+.podium-3 .book-card { background: #f5eadf; }
+.podium-step {
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 12px; border-radius: 14px 14px 0 0;
+  font-size: 28px; font-weight: 700;
+}
+/* #1 выше всех: самая высокая ступенька — золото, #2 — серебро, #3 — бронза */
+.podium-1 .podium-step { height: 110px; background: #f1c86b; color: #5c3d00; }
+.podium-2 .podium-step { height: 70px;  background: #d6d9de; color: #3a3f47; }
+.podium-3 .podium-step { height: 44px;  background: #e3b28c; color: #5a2f12; }
+@media (max-width: 760px) {
+  .podium-row { flex-direction: column; align-items: stretch; }
+  .podium-1 { order: -1; }
+  .podium-step { height: 36px !important; border-radius: 0 0 14px 14px; margin-top: 0; font-size: 18px; }
+}
 

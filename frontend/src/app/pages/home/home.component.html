@@ -12,19 +12,3 @@
         <img class="hero-image" src="/hero.png" alt="Girl reading a book on a stack of books" />
     </div>
   </section>
-
-<!-- Top rated: 4 лучшие книги по оценкам покупателей -->
-@if (topRated().length > 0) {
-  <section class="home-top">
-    <div class="home-top-head">
-      <h2>Top rated</h2>
-      <a class="book-card-link" routerLink="/top-rated">See full rating →</a>
-    </div>
-    <div class="tile-grid">
-      @for (b of topRated(); track b.product_id; let i = $index) {
-        <app-book-tile [book]="b" [rank]="i + 1" />
-      }
-    </div>
-  </section>
-}
-

@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -10,7 +10,7 @@ import { StarsComponent } from '../../stars.component';
 
 @Component({
   selector: 'app-catalog',
-  imports: [DecimalPipe, FormsModule, RouterLink, StarsComponent],
+  imports: [DecimalPipe, FormsModule, NgTemplateOutlet, RouterLink, StarsComponent],
   templateUrl: './catalog.component.html',
 })
 export class CatalogComponent implements OnInit {
@@ -23,6 +23,18 @@ export class CatalogComponent implements OnInit {
   error = signal('');
 
   categories = signal<Category[]>([]);
+
+  // Top rating: 3 лучшие книги по средней оценке (GET /api/products/top-rated/?limit=3)
+  podium = signal<Product[]>([]);
+  // Порядок на подиуме слева направо: #2, #1, #3 — первое место в центре и выше
+  podiumOrder = computed(() => {
+    const [first, second, third] = this.podium();
+    return [
+      second && { rank: 2, book: second },
+      first && { rank: 1, book: first },
+      third && { rank: 3, book: third },
+    ].filter((place): place is { rank: number; book: Product } => !!place);
+  });
 
   // Все фильтры в одном объекте. Каждый раз, когда что-то меняется,
   // отправляем их в Django, и база возвращает уже отфильтрованный список.
@@ -40,6 +52,14 @@ export class CatalogComponent implements OnInit {
   ngOnInit(): void {
     this.api.getCategories().subscribe({ next: (items) => this.categories.set(items) });
     this.load();
+    this.loadPodium();
+  }
+
+  loadPodium(): void {
+    this.api.getTopRated(3, this.filters.category_id).subscribe({
+      next: (list) => this.podium.set(list),
+      error: () => this.podium.set([]),
+    });
   }
 
   load(): void {
@@ -54,6 +74,7 @@ export class CatalogComponent implements OnInit {
   selectCategory(categoryId: number | null): void {
     this.filters.category_id = categoryId;
     this.load();
+    this.loadPodium(); // подиум показывает лучших в выбранной категории
   }
 
   resetFilters(): void {
