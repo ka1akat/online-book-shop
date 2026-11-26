@@ -9,6 +9,7 @@ import { ApiService, errorText } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { CartService } from '../../services/cart.service';
 import { CartLine, CustomerForm, SavedAddress } from '../../models';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-cart',
@@ -20,6 +21,7 @@ export class CartComponent {
   private router = inject(Router);
   private auth = inject(AuthService);
   cart = inject(CartService);
+  language = inject(LanguageService);
 
   customer: CustomerForm = {
     full_name: '', email: '', phone: '', city: '', full_address: '', within_city: null, entrance: '', apartment: '',
@@ -62,7 +64,7 @@ export class CartComponent {
     const token = this.auth.user()?.token;
     if (!token) {
       this.savedAddresses.set([]);
-      this.savedAddressMessage.set('Log in with your account to use saved addresses.');
+      this.savedAddressMessage.set(this.language.tr('Log in with your account to use saved addresses.'));
       return;
     }
     if (!this.customer.email.trim()) return;
@@ -71,7 +73,7 @@ export class CartComponent {
         this.savedAddresses.set(addresses);
         const preferred = addresses.find((address) => address.is_default) ?? addresses[0];
         if (preferred) this.useSavedAddress(preferred.address_id);
-        else this.savedAddressMessage.set('No saved addresses yet. You can choose to save the new address below.');
+        else this.savedAddressMessage.set(this.language.tr('No saved addresses yet. You can choose to save the new address below.'));
       },
       error: () => {
         this.savedAddresses.set([]);
@@ -128,7 +130,7 @@ export class CartComponent {
         this.router.navigate(['/orders', order.public_code]); // переходим к оплате по секретной ссылке
       },
       error: (err) => {
-        this.error.set(errorText(err));
+        this.error.set(this.language.tr(errorText(err)));
         this.sending.set(false);
       },
     });

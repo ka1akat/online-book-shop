@@ -1,15 +1,15 @@
 <section class="auth-page">
     <div class="panel auth-card">
-      <h1>Welcome back</h1>
-      <p class="muted">Log in to your account.</p>
+      <h1>{{ language.tr('Welcome back') }}</h1>
+      <p class="muted">{{ language.tr('Log in to your account.') }}</p>
   
       <form class="form" (ngSubmit)="submit()">
         <label>
-          Email
+          {{ language.tr('Email') }}
           <input name="email" type="email" [(ngModel)]="email" autocomplete="email" required />
         </label>
         <label>
-          Password
+          {{ language.tr('Password') }}
           <input
             name="password"
             type="password"
@@ -20,16 +20,16 @@
         </label>
   
         @if (error()) {
-          <p class="alert alert-error">{{ error() }}</p>
+          <p class="alert alert-error">{{ language.tr(error()) }}</p>
         }
   
         <button class="btn btn-wide" type="submit" [disabled]="sending()">
-          {{ sending() ? 'Logging in…' : 'Log in' }}
+          {{ language.tr(sending() ? 'Logging in…' : 'Log in') }}
         </button>
       </form>
   
       <p class="muted small auth-switch">
-        Don't have an account? <a routerLink="/register">Sign up</a>
+        {{ language.tr("Don't have an account?") }} <a routerLink="/register">{{ language.tr('Sign up') }}</a>
       </p>
     </div>
   </section>

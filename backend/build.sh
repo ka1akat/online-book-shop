@@ -6,12 +6,9 @@ pip install -r requirements.txt     # 1. библиотеки из requirements.
 python manage.py collectstatic --no-input   # 2. CSS/JS админки -> staticfiles/
 python manage.py migrate            # 3. создать/обновить таблицы в PostgreSQL
 
-# 4. Демо-книги — только в пустую базу, чтобы деплой не сбрасывал остатки склада
-if python manage.py shell -c "import sys; from shop.models import Product; sys.exit(0 if Product.objects.exists() else 1)"; then
-  echo "Books already exist, skipping seed_books"
-else
-  python manage.py seed_books
-fi
+# 4. Демо-книги: добавляются только те категории и книги, которых ещё нет в базе.
+#    Существующие книги не трогаем, поэтому деплой не сбрасывает остатки склада и цены.
+python manage.py seed_books --only-missing
 
 # 5. Администратор для /admin/ (логин и пароль задаются в Render -> Environment).
 #    Если он уже есть, команда падает — "|| true" говорит не обращать внимания.

@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../services/api.service';
 import { CustomerTicket, Order, SupportTicket, SupportTopic } from '../../models';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-order',
@@ -14,6 +15,7 @@ import { CustomerTicket, Order, SupportTicket, SupportTopic } from '../../models
 })
 export class OrderComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
+  language = inject(LanguageService);
 
   // Секретный код заказа приходит из адреса /orders/:id (включено withComponentInputBinding в app.config.ts).
   // Название параметра осталось id, но внутри теперь длинный случайный код, а не номер заказа.
@@ -69,7 +71,7 @@ export class OrderComponent implements OnInit, OnDestroy {
   load(): void {
     this.api.getOrder(this.id()).subscribe({
       next: (o) => this.order.set(o),
-      error: (err) => this.error.set(errorText(err)),
+      error: (err) => this.error.set(this.language.tr(errorText(err))),
     });
   }
 
@@ -81,7 +83,7 @@ export class OrderComponent implements OnInit, OnDestroy {
   }
 
   statusLabel(status: CustomerTicket['status']): string {
-    return status === 'open' ? 'Open' : status === 'in_progress' ? 'In progress' : 'Closed';
+    return this.language.tr(status === 'open' ? 'Open' : status === 'in_progress' ? 'In progress' : 'Closed');
   }
 
   pay(): void {
@@ -93,7 +95,7 @@ export class OrderComponent implements OnInit, OnDestroy {
         this.paying.set(false);
       },
       error: (err) => {
-        this.payError.set(errorText(err));
+        this.payError.set(this.language.tr(errorText(err)));
         this.paying.set(false);
         this.load(); // чтобы показать неудачную попытку в истории оплат
       },
@@ -135,7 +137,7 @@ export class OrderComponent implements OnInit, OnDestroy {
         // Если текст не прошёл проверку (грубые слова, ссылки), Django вернёт понятное сообщение.
         // Введённый текст остаётся в форме, его можно поправить и отправить снова.
         error: (err) => {
-          this.supportError.set(errorText(err));
+          this.supportError.set(this.language.tr(errorText(err)));
           this.supportSending.set(false);
         },
       });

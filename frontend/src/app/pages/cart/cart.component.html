@@ -1,12 +1,12 @@
 <section class="page">
   <header class="page-head">
-    <h1>Cart</h1>
+    <h1>{{ language.tr('Cart') }}</h1>
   </header>
 
   @if (cart.lines().length === 0) {
     <div class="empty">
-      <p>Your cart is empty.</p>
-      <a class="btn" routerLink="/catalog">Go to catalog</a>
+      <p>{{ language.tr('Your cart is empty.') }}</p>
+      <a class="btn" routerLink="/catalog">{{ language.tr('Go to catalog') }}</a>
     </div>
   } @else {
     <div class="two-col">
@@ -14,98 +14,98 @@
         @for (line of cart.lines(); track line.product.product_id) {
           <div class="line">
             <div>
-              <strong>{{ line.product.product_name }}</strong>
-              <div class="muted small">{{ line.product.author }} · {{ line.product.product_id }}</div>
+              <strong>{{ language.bookTitle(line.product.product_name) }}</strong>
+              <div class="muted small">{{ language.authorName(line.product.author) }} · {{ line.product.product_id }}</div>
             </div>
             <div class="qty">
-              <button class="icon-btn" (click)="change(line, -1)" aria-label="Decrease">−</button>
+              <button class="icon-btn" (click)="change(line, -1)" [attr.aria-label]="language.tr('Decrease')">−</button>
               <span>{{ line.quantity }}</span>
               <button
                 class="icon-btn"
                 (click)="change(line, 1)"
                 [disabled]="line.quantity >= line.product.available"
-                aria-label="Increase"
+                [attr.aria-label]="language.tr('Increase')"
               >+</button>
             </div>
             <span class="line-sum">{{ +line.product.price * line.quantity | number: '1.0-0' }} ₸</span>
           </div>
         }
         <div class="line">
-          <span>Books subtotal</span>
+          <span>{{ language.tr('Books subtotal') }}</span>
           <strong>{{ cart.total() | number: '1.0-0' }} ₸</strong>
         </div>
         <div class="line small">
-          <span>Delivery</span>
+          <span>{{ language.tr('Delivery') }}</span>
           @if (customer.within_city === null) {
-            <strong>Select area</strong>
+            <strong>{{ language.tr('Select area') }}</strong>
           } @else {
             <strong>{{ deliveryFee() | number: '1.0-0' }} ₸</strong>
           }
         </div>
         <div class="line line-total">
-          <strong>Total including delivery</strong>
+          <strong>{{ language.tr('Total including delivery') }}</strong>
           <strong>{{ cart.total() + (customer.within_city === true ? 1000 : customer.within_city === false ? 1500 : 0) | number: '1.0-0' }} ₸</strong>
         </div>
       </div>
 
       <form class="panel form" #f="ngForm" (ngSubmit)="checkout()">
-        <h2>Customer</h2>
+        <h2>{{ language.tr('Customer') }}</h2>
         <label>
-          Full name
+          {{ language.tr('Full name') }}
           <input name="full_name" [(ngModel)]="customer.full_name" required maxlength="100" />
         </label>
         <label>
-          Email
+          {{ language.tr('Email') }}
           <input name="email" type="email" [(ngModel)]="customer.email" (ngModelChange)="emailChanged()" (blur)="loadSavedAddresses()" required email maxlength="100" />
         </label>
         <label>
-          Phone
+          {{ language.tr('Phone') }}
           <input name="phone" [(ngModel)]="customer.phone" maxlength="20" placeholder="+7 701 111 22 33" />
         </label>
 
-        <h2>Delivery address</h2>
+        <h2>{{ language.tr('Delivery address') }}</h2>
         @if (savedAddresses().length > 0) {
           <label>
-            Saved address
+            {{ language.tr('Saved address') }}
             <select name="saved_address" [ngModel]="selectedSavedAddressId" (ngModelChange)="useSavedAddress($event)">
-              <option [ngValue]="null">Enter a new address</option>
+              <option [ngValue]="null">{{ language.tr('Enter a new address') }}</option>
               @for (address of savedAddresses(); track address.address_id) {
                 <option [ngValue]="address.address_id">{{ address.city }}, {{ address.full_address }}</option>
               }
             </select>
           </label>
         }
-        @if (savedAddressMessage()) { <p class="muted small">{{ savedAddressMessage() }}</p> }
-        <label>City<input name="city" [(ngModel)]="customer.city" (ngModelChange)="editAddress()" required maxlength="100" /></label>
+        @if (savedAddressMessage()) { <p class="muted small">{{ language.tr(savedAddressMessage()) }}</p> }
+        <label>{{ language.tr('City') }}<input name="city" [(ngModel)]="customer.city" (ngModelChange)="editAddress()" required maxlength="100" /></label>
         <label>
-          Location
+          {{ language.tr('Location') }}
           <select name="within_city" [(ngModel)]="customer.within_city" (ngModelChange)="editAddress()" required>
-            <option [ngValue]="null" disabled>Choose a delivery area</option>
-            <option [ngValue]="true">Inside {{ customer.city || 'the city' }} · 1,000 ₸</option>
-            <option [ngValue]="false">Outside {{ customer.city || 'the city' }} · 1,500 ₸</option>
+            <option [ngValue]="null" disabled>{{ language.tr('Choose a delivery area') }}</option>
+            <option [ngValue]="true">{{ language.tr('Inside') }} {{ customer.city || language.tr('the city') }} · 1,000 ₸</option>
+            <option [ngValue]="false">{{ language.tr('Outside') }} {{ customer.city || language.tr('the city') }} · 1,500 ₸</option>
           </select>
         </label>
-        <label>Full address<input name="full_address" [(ngModel)]="customer.full_address" (ngModelChange)="editAddress()" required maxlength="300" placeholder="Street, building, block" /></label>
+        <label>{{ language.tr('Full address') }}<input name="full_address" [(ngModel)]="customer.full_address" (ngModelChange)="editAddress()" required maxlength="300" [placeholder]="language.tr('Street, building, block')" /></label>
         <div class="address-row">
-          <label>Entrance (optional)<input name="entrance" [(ngModel)]="customer.entrance" (ngModelChange)="editAddress()" maxlength="30" /></label>
-          <label>Apartment (optional)<input name="apartment" [(ngModel)]="customer.apartment" (ngModelChange)="editAddress()" maxlength="30" /></label>
-          <label>Intercom code (optional)<input name="intercom_code" [(ngModel)]="customer.intercom_code" (ngModelChange)="editAddress()" maxlength="30" /></label>
-          <label>Floor (optional)<input name="floor" [(ngModel)]="customer.floor" (ngModelChange)="editAddress()" maxlength="30" /></label>
+          <label>{{ language.tr('Entrance (optional)') }}<input name="entrance" [(ngModel)]="customer.entrance" (ngModelChange)="editAddress()" maxlength="30" /></label>
+          <label>{{ language.tr('Apartment (optional)') }}<input name="apartment" [(ngModel)]="customer.apartment" (ngModelChange)="editAddress()" maxlength="30" /></label>
+          <label>{{ language.tr('Intercom code (optional)') }}<input name="intercom_code" [(ngModel)]="customer.intercom_code" (ngModelChange)="editAddress()" maxlength="30" /></label>
+          <label>{{ language.tr('Floor (optional)') }}<input name="floor" [(ngModel)]="customer.floor" (ngModelChange)="editAddress()" maxlength="30" /></label>
         </div>
         @if (selectedSavedAddressId === null) {
           <label class="save-address-label">
             <input type="checkbox" name="save_address" [(ngModel)]="customer.save_address" />
-            Save this address for next time
+            {{ language.tr('Save this address for next time') }}
           </label>
         }
         @if (error()) {
-          <p class="alert alert-error">{{ error() }}</p>
+          <p class="alert alert-error">{{ language.tr(error()) }}</p>
         }
 
         <button class="btn btn-wide" type="submit" [disabled]="f.invalid || sending()">
-          {{ sending() ? 'Placing order…' : 'Place order' }}
+          {{ language.tr(sending() ? 'Placing order…' : 'Place order') }}
         </button>
-        <p class="muted small">Delivery inside the city costs 1,000 ₸. Delivery outside the city costs 1,500 ₸.</p>
+        <p class="muted small">{{ language.tr('Delivery inside the city costs 1,000 ₸. Delivery outside the city costs 1,500 ₸.') }}</p>
       </form>
     </div>
   }

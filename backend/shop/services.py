@@ -47,7 +47,7 @@ def create_order(customer_data, items, delivery_method=Order.DeliveryMethod.DELI
     Книги бронируются на 15 минут, склад пока НЕ уменьшается.
     """
     if not items:
-        raise ShopError("Корзина пуста.")
+        raise ShopError("Your cart is empty.")
 
     expire_reservations()
 
@@ -61,7 +61,7 @@ def create_order(customer_data, items, delivery_method=Order.DeliveryMethod.DELI
     )
 
     if not address_data and saved_address is None:
-        raise ShopError("Укажите адрес доставки.")
+        raise ShopError("Please enter a delivery address.")
     if saved_address is not None:
         if saved_address.customer_id != customer.customer_id:
             raise ShopError("Saved address does not belong to this customer.", 404)
@@ -92,17 +92,17 @@ def create_order(customer_data, items, delivery_method=Order.DeliveryMethod.DELI
         try:
             product = Product.objects.select_for_update().get(pk=item["product_id"])
         except Product.DoesNotExist:
-            raise ShopError(f"Книга {item['product_id']} не найдена.", 404)
+            raise ShopError(f"Book {item['product_id']} not found.", 404)
 
         quantity = int(item["quantity"])
         if quantity < 1:
-            raise ShopError("Количество должно быть 1 или больше.")
+            raise ShopError("Quantity must be 1 or more.")
 
         free = available_quantity(product)
         if quantity > free:
             # raise внутри @transaction.atomic = ROLLBACK: заказ и покупатель не сохранятся
             raise ShopError(
-                f"«{product.product_name}»: в наличии только {max(free, 0)} шт.", 409
+                f"\"{product.product_name}\": only {max(free, 0)} in stock.", 409
             )
 
         OrderItem.objects.create(
@@ -122,7 +122,7 @@ def fake_bank(card_number, amount):
     """
     digits = "".join(ch for ch in str(card_number) if ch.isdigit())
     if len(digits) != 16:
-        raise ShopError("Номер карты должен состоять из 16 цифр.")
+        raise ShopError("The card number must have 16 digits.")
     transaction_id = "TX-" + uuid.uuid4().hex[:10].upper()
     approved = not digits.endswith("0000")
     return approved, transaction_id
@@ -143,13 +143,13 @@ def pay_order(order_id, card_number):
         try:
             order = Order.objects.select_for_update().get(pk=order_id)
         except Order.DoesNotExist:
-            raise ShopError("Заказ не найден.", 404)
+            raise ShopError("Order not found.", 404)
 
         # Проверяем статус и время УЖЕ после блокировки, а не до неё
         if order.status == Order.Status.PAID:
-            raise ShopError("Этот заказ уже оплачен.", 409)
+            raise ShopError("This order has already been paid.", 409)
         if order.status == Order.Status.CANCELLED or order.reserved_until <= timezone.now():
-            raise ShopError("Бронь истекла (15 минут). Оформите заказ заново.", 409)
+            raise ShopError("The reservation has expired (15 minutes). Please place the order again.", 409)
 
         amount = order.total
         approved, transaction_id = fake_bank(card_number, amount)
@@ -172,7 +172,7 @@ def pay_order(order_id, card_number):
                 )
                 if updated == 0:
                     # 0 строк изменилось -> книги нет -> ROLLBACK всей транзакции
-                    raise ShopError(f"«{item.product.product_name}» закончилась.", 409)
+                    raise ShopError(f"\"{item.product.product_name}\" is out of stock.", 409)
 
                 StockLog.objects.create(
                     product_id=item.product_id,
@@ -191,7 +191,7 @@ def pay_order(order_id, card_number):
 
     if declined:
         # Ошибку показываем уже после COMMIT, чтобы запись о неудачной попытке сохранилась
-        raise ShopError("Банк отклонил оплату: недостаточно средств. Попробуйте другую карту.", 402)
+        raise ShopError("The bank declined the payment: insufficient funds. Please try another card.", 402)
 
     return order
 @transaction.atomic
@@ -203,22 +203,22 @@ def refund_payment(payment_id, employee=None, changed_by="finance", reason="othe
     Если любой шаг падает, не сохраняется ничего (ROLLBACK).
     """
     if reason not in Payment.RefundReason.values:
-        raise ShopError("Укажите причину возврата.")
+        raise ShopError("Please choose a refund reason.")
 
     try:
         # select_for_update блокирует платёж: два финансиста не вернут один платёж дважды
         payment = Payment.objects.select_for_update().get(pk=payment_id)
     except Payment.DoesNotExist:
-        raise ShopError("Платёж не найден.", 404)
+        raise ShopError("Payment not found.", 404)
 
     if payment.status == Payment.Status.REFUNDED:
-        raise ShopError("Этот платёж уже возвращён.", 409)
+        raise ShopError("This payment has already been refunded.", 409)
     if payment.status != Payment.Status.SUCCESS:
-        raise ShopError("Вернуть можно только успешный платёж.", 409)
+        raise ShopError("Only a successful payment can be refunded.", 409)
 
     order = Order.objects.select_for_update().get(pk=payment.order_id)
     if order.status != Order.Status.PAID:
-        raise ShopError("Вернуть можно только оплаченный заказ.", 409)
+        raise ShopError("Only a paid order can be refunded.", 409)
 
     for item in order.items.select_related("product"):
         Product.objects.filter(pk=item.product_id).update(

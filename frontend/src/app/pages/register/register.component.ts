@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService, RegisteredUser, errorText } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-register',
@@ -10,6 +11,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './register.component.html',
 })
 export class RegisterComponent {
+  language = inject(LanguageService);
   private api = inject(ApiService);
   private auth = inject(AuthService);
 
@@ -34,7 +36,7 @@ export class RegisterComponent {
           this.sending.set(false);
         },
         error: (err) => {
-          this.error.set(errorText(err));
+          this.error.set(this.language.tr(errorText(err)));
           this.sending.set(false);
         },
       });

@@ -6,49 +6,50 @@ import { ApiService, errorText } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BookTileComponent } from '../../book-tile.component';
 import { Category, Recommendations } from '../../models';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-for-you',
   imports: [BookTileComponent, RouterLink],
   template: `<section>
     <header class="page-head">
-      <h1>For you</h1>
-      <p class="muted">Choose the categories you like, and we will pick books for you.</p>
+      <h1>{{ language.tr('For you') }}</h1>
+      <p class="muted">{{ language.tr('Choose the categories you like, and we will pick books for you.') }}</p>
     </header>
 
     <div class="panel prefs">
-      <strong>My favourite categories</strong>
+      <strong>{{ language.tr('My favourite categories') }}</strong>
       <div class="category-chips">
         @for (c of categories(); track c.category_id) {
           <button type="button" class="chip" [class.chip-on]="chosen().has(c.category_id)"
             [attr.aria-pressed]="chosen().has(c.category_id)" (click)="toggle(c.category_id)">
-            {{ chosen().has(c.category_id) ? '✓ ' : '' }}{{ c.category_name }}
+            {{ chosen().has(c.category_id) ? '✓ ' : '' }}{{ language.category(c.category_name) }}
           </button>
         }
       </div>
       <div class="prefs-actions">
         <button class="btn" type="button" [disabled]="saving() || !changed()" (click)="save()">
-          {{ saving() ? 'Saving…' : 'Save' }}
+          {{ language.tr(saving() ? 'Saving…' : 'Save') }}
         </button>
-        @if (saved()) { <span class="muted small">Saved ✓</span> }
-        @if (error()) { <span class="alert alert-error">{{ error() }}</span> }
+        @if (saved()) { <span class="muted small">{{ language.tr('Saved ✓') }}</span> }
+        @if (error()) { <span class="alert alert-error">{{ language.tr(error()) }}</span> }
       </div>
     </div>
 
     @if (recs(); as r) {
-      <h2>Recommended for you</h2>
+      <h2>{{ language.tr('Recommended for you') }}</h2>
       <p class="muted small">
         @switch (r.based_on) {
-          @case ('favorites') { From your favourite categories: {{ r.categories.join(', ') }}. }
-          @case ('activity') { Based on your wishlist, orders and reviews: {{ r.categories.join(', ') }}. }
-          @case ('top_rated') { You have not chosen categories yet, so here are our best-rated books. }
+          @case ('favorites') { {{ language.tr('Recommended from your favourite categories:') }} {{ language.categoryList(r.categories) }}. }
+          @case ('activity') { {{ language.tr('Based on your wishlist, orders and reviews:') }} {{ language.categoryList(r.categories) }}. }
+          @case ('top_rated') { {{ language.tr('You have not chosen categories yet, so here are our best-rated books.') }} }
         }
       </p>
       <div class="tile-grid">
         @for (b of r.books; track b.product_id) {
           <app-book-tile [book]="b" />
         } @empty {
-          <p class="muted">You already have all books from these categories. Look at the top rated books in the <a routerLink="/catalog">catalog</a>.</p>
+          <p class="muted">{{ language.tr('You already have all books from these categories. Look at the top rated books in the') }} <a routerLink="/catalog">{{ language.tr('catalog') }}</a>.</p>
         }
       </div>
     }
@@ -57,6 +58,7 @@ import { Category, Recommendations } from '../../models';
 export class ForYouComponent implements OnInit {
   private api = inject(ApiService);
   private auth = inject(AuthService);
+  language = inject(LanguageService);
 
   categories = signal<Category[]>([]);
   chosen = signal(new Set<number>());
@@ -101,7 +103,7 @@ export class ForYouComponent implements OnInit {
         this.saved.set(true);
         this.loadRecommendations();
       },
-      error: (err) => { this.saving.set(false); this.error.set(errorText(err)); },
+      error: (err) => { this.saving.set(false); this.error.set(this.language.tr(errorText(err))); },
     });
   }
 
