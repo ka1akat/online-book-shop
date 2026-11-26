@@ -246,12 +246,21 @@ def refund_payment(payment_id, employee=None, changed_by="finance", reason="othe
 def notify_waiting_customers(product_id):
     """
     FR-07, критерий 4: книга снова на складе -> всем, кто нажал «Notify me», ставим notified = true.
-    Покупатель увидит это на странице уведомлений (GET /api/notifications/).
+    Покупатель увидит это на странице уведомлений (GET /api/notifications/)
+    и получит письмо на email (shop/emails.py).
     Вызывается после каждого увеличения склада: админка, возврат платежа.
     Возвращает, сколько покупателей получили уведомление.
     """
     if not Product.objects.filter(pk=product_id, stock_quantity__gt=0).exists():
         return 0
-    return StockRequest.objects.filter(product_id=product_id, notified=False).update(
+    from .emails import send_back_in_stock_email  # здесь, чтобы не было циклического импорта
+
+    waiting = list(
+        StockRequest.objects.filter(product_id=product_id, notified=False).select_related("product", "customer")
+    )
+    StockRequest.objects.filter(pk__in=[r.pk for r in waiting]).update(
         notified=True, notified_at=timezone.now(), is_read=False
     )
+    for stock_request in waiting:
+        send_back_in_stock_email(stock_request)
+    return len(waiting)

@@ -149,4 +149,16 @@
       </div>
     }
   }
+
+  <!-- «You may also like»: книги той же категории с лучшими оценками -->
+  @if (similar().length > 0) {
+    <div class="similar">
+      <h2>You may also like</h2>
+      <div class="tile-grid">
+        @for (b of similar(); track b.product_id) {
+          <app-book-tile [book]="b" />
+        }
+      </div>
+    </div>
+  }
 </section>

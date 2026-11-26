@@ -189,3 +189,17 @@ REST_FRAMEWORK = {
 
 # BR-01: неоплаченный заказ бронирует книги на 15 минут
 RESERVATION_MINUTES = 15
+
+
+# ---------- Почта (письмо «книга снова в наличии») ----------
+# Локально письмо печатается в терминале. На Render задайте BREVO_API_KEY —
+# тогда письма уходят через Brevo по HTTPS (SMTP на бесплатном Render закрыт).
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+EMAIL_BACKEND = (
+    "shop.emails.BrevoEmailBackend" if BREVO_API_KEY else "django.core.mail.backends.console.EmailBackend"
+)
+# Адрес отправителя: в Brevo его нужно подтвердить (Senders, domains & dedicated IPs -> Senders)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Online Book Shop <no-reply@bookshop.local>")
+# Адрес сайта для ссылок в письмах
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:4200").rstrip("/")
+

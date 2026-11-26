@@ -1,0 +1,111 @@
+// «For you» в личном кабинете: покупатель отмечает любимые категории и получает подборку книг.
+
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { ApiService, errorText } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
+import { BookTileComponent } from '../../book-tile.component';
+import { Category, Recommendations } from '../../models';
+
+@Component({
+  selector: 'app-for-you',
+  imports: [BookTileComponent, RouterLink],
+  template: `<section>
+    <header class="page-head">
+      <h1>For you</h1>
+      <p class="muted">Choose the categories you like, and we will pick books for you.</p>
+    </header>
+
+    <div class="panel prefs">
+      <strong>My favourite categories</strong>
+      <div class="category-chips">
+        @for (c of categories(); track c.category_id) {
+          <button type="button" class="chip" [class.chip-on]="chosen().has(c.category_id)"
+            [attr.aria-pressed]="chosen().has(c.category_id)" (click)="toggle(c.category_id)">
+            {{ chosen().has(c.category_id) ? '✓ ' : '' }}{{ c.category_name }}
+          </button>
+        }
+      </div>
+      <div class="prefs-actions">
+        <button class="btn" type="button" [disabled]="saving() || !changed()" (click)="save()">
+          {{ saving() ? 'Saving…' : 'Save' }}
+        </button>
+        @if (saved()) { <span class="muted small">Saved ✓</span> }
+        @if (error()) { <span class="alert alert-error">{{ error() }}</span> }
+      </div>
+    </div>
+
+    @if (recs(); as r) {
+      <h2>Recommended for you</h2>
+      <p class="muted small">
+        @switch (r.based_on) {
+          @case ('favorites') { From your favourite categories: {{ r.categories.join(', ') }}. }
+          @case ('activity') { Based on your wishlist, orders and reviews: {{ r.categories.join(', ') }}. }
+          @case ('top_rated') { You have not chosen categories yet, so here are our best-rated books. }
+        }
+      </p>
+      <div class="tile-grid">
+        @for (b of r.books; track b.product_id) {
+          <app-book-tile [book]="b" />
+        } @empty {
+          <p class="muted">You already have all books from these categories. Look at the <a routerLink="/top-rated">Top rating</a>.</p>
+        }
+      </div>
+    }
+  </section>`,
+})
+export class ForYouComponent implements OnInit {
+  private api = inject(ApiService);
+  private auth = inject(AuthService);
+
+  categories = signal<Category[]>([]);
+  chosen = signal(new Set<number>());
+  private savedIds = signal(new Set<number>());
+  recs = signal<Recommendations | null>(null);
+  saving = signal(false);
+  saved = signal(false);
+  error = signal('');
+
+  private get token(): string {
+    return this.auth.user()?.token ?? '';
+  }
+
+  ngOnInit(): void {
+    this.api.getCategories().subscribe({ next: (list) => this.categories.set(list), error: () => {} });
+    this.api.getPreferences(this.token).subscribe({
+      next: (p) => { this.chosen.set(new Set(p.category_ids)); this.savedIds.set(new Set(p.category_ids)); },
+      error: () => {},
+    });
+    this.loadRecommendations();
+  }
+
+  toggle(id: number): void {
+    const next = new Set(this.chosen());
+    if (next.has(id)) next.delete(id); else next.add(id);
+    this.chosen.set(next);
+    this.saved.set(false);
+  }
+
+  changed(): boolean {
+    const a = this.chosen(), b = this.savedIds();
+    return a.size !== b.size || [...a].some((id) => !b.has(id));
+  }
+
+  save(): void {
+    this.saving.set(true);
+    this.error.set('');
+    this.api.savePreferences([...this.chosen()], this.token).subscribe({
+      next: (p) => {
+        this.savedIds.set(new Set(p.category_ids));
+        this.saving.set(false);
+        this.saved.set(true);
+        this.loadRecommendations();
+      },
+      error: (err) => { this.saving.set(false); this.error.set(errorText(err)); },
+    });
+  }
+
+  private loadRecommendations(): void {
+    this.api.getRecommendations(this.token).subscribe({ next: (r) => this.recs.set(r), error: () => {} });
+  }
+}

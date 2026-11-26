@@ -4,7 +4,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CartLine, Category, CustomerForm, CustomerTicket, Order, Product, ProductFilters, Review, SavedAddress, StockRequestNotice, StoreReview, SupportRequest, SupportTicket, } from '../models';
+import { CartLine, Category, CustomerForm, CustomerTicket, Order, Product, ProductFilters, Review, SavedAddress, StockRequestNotice, Recommendations, StoreReview, SupportRequest, SupportTicket, } from '../models';
 
 import { environment } from '../../environments/environment';
 
@@ -155,6 +155,33 @@ export class ApiService {
   markNotificationsRead(token: string): Observable<{ marked_read: number }> {
     const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
     return this.http.post<{ marked_read: number }>(`${API}/notifications/read/`, {}, { headers });
+  }
+
+  // ---------- Top rating и подборки ----------
+
+  getTopRated(limit = 10, categoryId: number | null = null): Observable<Product[]> {
+    let params = new HttpParams().set('limit', limit);
+    if (categoryId) params = params.set('category_id', categoryId);
+    return this.http.get<Product[]>(`${API}/products/top-rated/`, { params });
+  }
+
+  getSimilar(productId: string, limit = 4): Observable<Product[]> {
+    return this.http.get<Product[]>(`${API}/products/${productId}/similar/`, { params: { limit } });
+  }
+
+  getPreferences(token: string): Observable<{ category_ids: number[] }> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<{ category_ids: number[] }>(`${API}/preferences/`, { headers });
+  }
+
+  savePreferences(categoryIds: number[], token: string): Observable<{ category_ids: number[] }> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.put<{ category_ids: number[] }>(`${API}/preferences/`, { category_ids: categoryIds }, { headers });
+  }
+
+  getRecommendations(token: string): Observable<Recommendations> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<Recommendations>(`${API}/recommendations/`, { headers });
   }
 
   // ---------- Мои заказы ----------

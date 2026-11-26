@@ -299,3 +299,8 @@ class NotifyInputSerializer(serializers.Serializer):
 class WishlistInputSerializer(serializers.Serializer):
     product_id = serializers.CharField(max_length=6)
 
+
+class PreferencesInputSerializer(serializers.Serializer):
+    # Любимые категории покупателя: [1, 3]. Пустой список — сбросить выбор
+    category_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=True)
+

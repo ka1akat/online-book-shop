@@ -21,6 +21,7 @@ from .serializers import (
     LoginSerializer, OrderSerializer, PayOrderSerializer, ProductSerializer, RegisterSerializer,
     ReviewInputSerializer, ReviewSerializer, StoreReviewInputSerializer, StoreReviewSerializer, SupportRequestSerializer, SupportTicketSerializer,
     NotifyInputSerializer, StockRequestSerializer, WishlistInputSerializer, CustomerTicketSerializer,
+    PreferencesInputSerializer,
 )
 from .moderation import check_support_message
 from .services import ShopError, create_order, expire_reservations, pay_order
@@ -666,4 +667,127 @@ def wishlist_item_view(request, pk):
         return login_required_response("use your wishlist")
     WishlistItem.objects.filter(customer__email=user.email.lower(), product_id=pk).delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- Top rating: лучшие книги по оценкам покупателей ----------
+
+def limit_param(params, default, maximum):
+    """?limit=5 -> 5. Пусто -> default. Больше maximum -> maximum."""
+    value = number_param(params, "limit")
+    if value is None:
+        return default
+    return max(1, min(int(value), maximum))
+
+
+def ranked_by_rating(queryset):
+    """Сначала самая высокая средняя оценка; при равной — у кого больше отзывов."""
+    return queryset.order_by(F("avg_rating").desc(nulls_last=True), "-review_count", "product_id")
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def top_rated_view(request):
+    """
+    GET /api/products/top-rated/?limit=10&category_id=2
+    Рейтинг книг: только книги, у которых есть хотя бы один отзыв (без оценок места в рейтинге нет).
+    То же на SQL: ... GROUP BY p.product_id HAVING COUNT(r.review_id) >= 1
+                  ORDER BY AVG(r.rating) DESC, COUNT(r.review_id) DESC LIMIT 10
+    """
+    params = request.query_params
+    books = products_with_rating().select_related("category").filter(review_count__gte=1)
+    category_id = params.get("category_id")
+    if category_id:
+        books = books.filter(category_id=category_id)
+    books = ranked_by_rating(books)[: limit_param(params, 10, 50)]
+    return Response(ProductSerializer(books, many=True).data)
+
+
+# ---------- Preferable list: похожие книги и подборка «For you» ----------
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def similar_products_view(request, pk):
+    """GET /api/products/P-1001/similar/ — «You may also like»: книги той же категории, лучшие сверху."""
+    product = Product.objects.filter(pk=pk).first()
+    if product is None:
+        return Response({"detail": "Book not found."}, status=status.HTTP_404_NOT_FOUND)
+    limit = limit_param(request.query_params, 4, 12)
+    books = list(ranked_by_rating(
+        products_with_rating().select_related("category").filter(category_id=product.category_id).exclude(pk=pk)
+    )[:limit])
+    if len(books) < limit:
+        # в категории мало книг — добавляем лучшие книги из других категорий
+        taken = [b.pk for b in books] + [pk]
+        books += list(ranked_by_rating(
+            products_with_rating().select_related("category").exclude(pk__in=taken)
+        )[: limit - len(books)])
+    return Response(ProductSerializer(books, many=True).data)
+
+
+@api_view(["GET", "PUT"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def preferences_view(request):
+    """GET — мои любимые категории. PUT {category_ids: [1, 3]} — сохранить выбор (заменяет старый)."""
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("choose your favourite categories")
+    customer = customer_for_user(user)
+    if request.method == "PUT":
+        data = PreferencesInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        ids = set(data.validated_data["category_ids"])
+        categories = list(Category.objects.filter(pk__in=ids))
+        if len(categories) != len(ids):
+            return Response({"category_ids": "Unknown category."}, status=status.HTTP_400_BAD_REQUEST)
+        customer.favorite_categories.set(categories)
+    return Response({"category_ids": sorted(customer.favorite_categories.values_list("pk", flat=True))})
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def recommendations_view(request):
+    """
+    GET /api/recommendations/ — подборка «For you» для покупателя, который вошёл.
+    1) Если он выбрал любимые категории — книги из них.
+    2) Если нет — категории из его действий: избранное, заказы, отзывы с оценкой 4–5.
+    3) Если и действий нет — просто лучшие книги (Top rated).
+    Книги, которые уже в избранном или уже куплены, не предлагаем.
+    """
+    user = user_from_token(request)
+    if user is None:
+        return login_required_response("see books picked for you")
+    customer = customer_for_user(user)
+    limit = limit_param(request.query_params, 8, 24)
+
+    category_ids = set(customer.favorite_categories.values_list("pk", flat=True))
+    based_on = "favorites"
+    if not category_ids:
+        based_on = "activity"
+        category_ids |= set(customer.wishlist_items.values_list("product__category_id", flat=True))
+        category_ids |= set(
+            OrderItem.objects.filter(order__customer=customer).exclude(order__status="cancelled")
+            .values_list("product__category_id", flat=True)
+        )
+        category_ids |= set(customer.reviews.filter(rating__gte=4).values_list("product__category_id", flat=True))
+        category_ids.discard(None)
+
+    seen = set(customer.wishlist_items.values_list("product_id", flat=True))
+    seen |= set(OrderItem.objects.filter(order__customer=customer, order__status="paid").values_list("product_id", flat=True))
+
+    books = products_with_rating().select_related("category").exclude(pk__in=seen)
+    if category_ids:
+        books = books.filter(category_id__in=category_ids)
+    else:
+        based_on = "top_rated"
+    books = list(ranked_by_rating(books)[:limit])
+    return Response({
+        "based_on": based_on,
+        "categories": list(Category.objects.filter(pk__in=category_ids).order_by("category_name")
+                           .values_list("category_name", flat=True)),
+        "books": ProductSerializer(books, many=True).data,
+    })
 

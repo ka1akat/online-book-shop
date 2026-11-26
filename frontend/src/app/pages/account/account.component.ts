@@ -22,6 +22,7 @@ import { CartService } from '../../services/cart.service';
         </div>
         <nav class="account-nav" aria-label="My account">
           <a routerLink="/account" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Profile</a>
+          <a routerLink="/account/for-you" routerLinkActive="active">For you</a>
           <a routerLink="/account/cart" routerLinkActive="active">
             Cart @if (cart.count() > 0) { <span class="cart-count">{{ cart.count() }}</span> }
           </a>
