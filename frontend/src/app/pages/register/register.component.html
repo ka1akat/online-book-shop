@@ -1,24 +1,24 @@
 <section class="auth-page">
     <div class="panel auth-card">
       @if (user(); as u) {
-        <h1>Welcome, {{ u.full_name }}!</h1>
-        <p class="muted">Your account for {{ u.email }} has been created.</p>
-        <a class="btn" routerLink="/catalog">Browse catalog</a>
+        <h1>{{ language.tr('Welcome,') }} {{ u.full_name }}!</h1>
+        <p class="muted">{{ language.tr('Your account for') }} {{ u.email }} {{ language.tr('has been created.') }}</p>
+        <a class="btn" routerLink="/catalog">{{ language.tr('Browse catalog') }}</a>
       } @else {
-        <h1>Create an account</h1>
-        <p class="muted">Sign up to start ordering books.</p>
+        <h1>{{ language.tr('Create an account') }}</h1>
+        <p class="muted">{{ language.tr('Sign up to start ordering books.') }}</p>
   
         <form class="form" (ngSubmit)="submit()">
           <label>
-            Full name
+            {{ language.tr('Full name') }}
             <input name="full_name" [(ngModel)]="fullName" autocomplete="name" required />
           </label>
           <label>
-            Email
+            {{ language.tr('Email') }}
             <input name="email" type="email" [(ngModel)]="email" autocomplete="email" required />
           </label>
           <label>
-            Password
+            {{ language.tr('Password') }}
             <input
               name="password"
               type="password"
@@ -29,16 +29,16 @@
           </label>
   
           @if (error()) {
-            <p class="alert alert-error">{{ error() }}</p>
+            <p class="alert alert-error">{{ language.tr(error()) }}</p>
           }
   
           <button class="btn btn-wide" type="submit" [disabled]="sending()">
-            {{ sending() ? 'Creating account…' : 'Sign up' }}
+            {{ language.tr(sending() ? 'Creating account…' : 'Sign up') }}
           </button>
         </form>
   
         <p class="muted small auth-switch">
-          Already have an account? <a routerLink="/login">Log in</a>
+          {{ language.tr('Already have an account?') }} <a routerLink="/login">{{ language.tr('Log in') }}</a>
         </p>
       }
     </div>

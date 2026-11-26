@@ -4,9 +4,9 @@
     Online Book Shop
   </a>
   <nav>
-    <a routerLink="/catalog" routerLinkActive="active">Catalog</a>
-    <a routerLink="/shop-reviews" routerLinkActive="active">Shop reviews</a>
-    <a routerLink="/about" routerLinkActive="active">About us</a>
+    <a routerLink="/catalog" routerLinkActive="active">{{ language.text('nav.catalog') }}</a>
+    <a routerLink="/shop-reviews" routerLinkActive="active">{{ language.text('nav.reviews') }}</a>
+    <a routerLink="/about" routerLinkActive="active">{{ language.text('nav.about') }}</a>
     @if (auth.user(); as user) {
       <!-- Корзина, заказы, избранное и уведомления — внутри личного кабинета -->
       <a routerLink="/account" routerLinkActive="active" class="cart-link nav-account">
@@ -18,13 +18,20 @@
       </a>
     } @else {
       <a routerLink="/cart" routerLinkActive="active" class="cart-link">
-        Cart
+        {{ language.text('nav.cart') }}
         @if (cart.count() > 0) {
           <span class="cart-count">{{ cart.count() }}</span>
         }
       </a>
-      <a routerLink="/login" routerLinkActive="active">Log in</a>
+      <a routerLink="/login" routerLinkActive="active">{{ language.text('nav.login') }}</a>
     }
+    <label class="language-picker">
+      <span class="visually-hidden">{{ language.text('nav.language') }}</span>
+      <select [value]="language.current()" (change)="language.setLanguage($any($event.target).value)" [attr.aria-label]="language.text('nav.language')">
+        <option value="en">EN</option>
+        <option value="ru">RU</option>
+      </select>
+    </label>
   </nav>
 </header>
 
@@ -32,4 +39,4 @@
   <router-outlet />
 </main>
 
-<footer class="footer muted small">KBTU · Online Shop Team · student project</footer>
+<footer class="footer muted small">{{ language.tr('KBTU · Online Shop Team · student project') }}</footer>

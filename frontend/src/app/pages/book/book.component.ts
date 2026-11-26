@@ -11,7 +11,7 @@ import { CartService } from '../../services/cart.service';
 import { Product, Review } from '../../models';
 import { StarsComponent } from '../../stars.component';
 import { BookTileComponent } from '../../book-tile.component';
-
+import { LanguageService } from '../../services/language.service';
 @Component({
   selector: 'app-book',
   imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, StarsComponent, BookTileComponent],
@@ -23,7 +23,7 @@ export class BookComponent implements OnInit {
   auth = inject(AuthService);
   cart = inject(CartService);
   account = inject(AccountService);
-
+  language = inject(LanguageService);
   productId = '';
   book = signal<Product | null>(null);
   reviews = signal<Review[]>([]);
@@ -67,7 +67,7 @@ export class BookComponent implements OnInit {
       this.notifyError.set('');
       this.api.getProduct(this.productId).subscribe({
         next: (book) => { this.book.set(book); this.loading.set(false); },
-        error: (err) => { this.error.set(errorText(err)); this.loading.set(false); },
+        error: (err) => { this.error.set(this.language.tr(errorText(err))); this.loading.set(false); },
       });
       this.loadReviews();
       this.api.getSimilar(this.productId).subscribe({ next: (list) => this.similar.set(list), error: () => {} });
@@ -97,11 +97,11 @@ export class BookComponent implements OnInit {
     const token = this.auth.user()?.token;
     if (!token) {
       // Пользователь вошёл до того, как появились токены: нужно войти заново
-      this.formError.set('Please log out and log in again to leave a review.');
+      this.formError.set(this.language.tr('Please log out and log in again to leave a review.'));
       return;
     }
     if (this.rating() === 0) {
-      this.formError.set('Choose from 1 to 5 stars.');
+      this.formError.set(this.language.tr('Choose from 1 to 5 stars.'));
       return;
     }
     this.sending.set(true);
@@ -110,13 +110,13 @@ export class BookComponent implements OnInit {
     this.api.addReview(this.productId, this.rating(), this.comment, token).subscribe({
       next: () => {
         this.sending.set(false);
-        this.formDone.set('Thank you! Your review is published.');
+        this.formDone.set(this.language.tr('Thank you! Your review is published.'));
         this.loadReviews();
         // средняя оценка изменилась — берём книгу заново
         this.api.getProduct(this.productId).subscribe({ next: (book) => this.book.set(book) });
       },
       error: (err) => {
-        this.formError.set(errorText(err));
+        this.formError.set(this.language.tr(errorText(err)));
         this.sending.set(false);
       },
     });
@@ -125,7 +125,7 @@ export class BookComponent implements OnInit {
   notifyMe(): void {
     const loggedIn = !!this.auth.user()?.token;
     if (!loggedIn && !this.notifyEmail.trim()) {
-      this.notifyError.set('Enter your e-mail and we will let you know.');
+      this.notifyError.set(this.language.tr('Enter your e-mail and we will let you know.'));
       return;
     }
     this.notifySending.set(true);
@@ -137,7 +137,7 @@ export class BookComponent implements OnInit {
       },
       error: (err) => {
         this.notifySending.set(false);
-        this.notifyError.set(errorText(err));
+        this.notifyError.set(this.language.tr(errorText(err)));
       },
     });
   }
@@ -148,7 +148,7 @@ export class BookComponent implements OnInit {
       next: () => this.notifySending.set(false),
       error: (err) => {
         this.notifySending.set(false);
-        this.notifyError.set(errorText(err));
+        this.notifyError.set(this.language.tr(errorText(err)));
       },
     });
   }
@@ -160,7 +160,7 @@ export class BookComponent implements OnInit {
       next: () => this.wishlistBusy.set(false),
       error: (err) => {
         this.wishlistBusy.set(false);
-        this.wishlistError.set(errorText(err));
+        this.wishlistError.set(this.language.tr(errorText(err)));
       },
     });
   }

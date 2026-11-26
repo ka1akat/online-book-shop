@@ -6,51 +6,52 @@ import { RouterLink } from '@angular/router';
 import { AccountService } from '../../services/account.service';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-notifications',
   imports: [DatePipe, RouterLink],
   template: `<section class="page">
     <header class="page-head">
-      <h1>Notifications</h1>
-      <p class="muted">Books you are waiting for. When a book is back in stock, it appears at the top.</p>
+      <h1>{{ language.tr('Notifications') }}</h1>
+      <p class="muted">{{ language.tr('Books you are waiting for. When a book is back in stock, it appears at the top.') }}</p>
     </header>
 
     @if (!auth.user()) {
-      <p class="muted"><a routerLink="/login">Log in</a> to see your notifications and waiting list.</p>
+      <p class="muted"><a routerLink="/login">{{ language.tr('Log in') }}</a> {{ language.tr('to see your notifications and waiting list.') }}</p>
     } @else {
       @if (backInStock().length > 0) {
-        <h2>Back in stock</h2>
+        <h2>{{ language.tr('Back in stock') }}</h2>
         @for (n of backInStock(); track n.request_id) {
           <article class="notice" [class.notice-new]="newIds().has(n.request_id)">
             <div>
-              @if (newIds().has(n.request_id)) { <span class="badge badge-paid">New</span> }
-              <strong>{{ n.product_name }}</strong>&nbsp;<span class="muted">by {{ n.author }}</span>
+              @if (newIds().has(n.request_id)) { <span class="badge badge-paid">{{ language.tr('New') }}</span> }
+              <strong>{{ language.bookTitle(n.product_name) }}</strong>&nbsp;<span class="muted">{{ language.tr('Author:') }} {{ language.authorName(n.author) }}</span>
               <p class="muted small">
-                {{ n.in_stock ? 'Back in stock' : 'Was back, but sold out again' }}
-                · {{ n.notified_at | date: 'd MMM y, HH:mm' }}
+                {{ language.tr(n.in_stock ? 'Back in stock' : 'Was back, but sold out again') }}
+                · {{ n.notified_at | date: 'd MMM y, HH:mm':undefined:language.dateLocale() }}
               </p>
             </div>
-            <a class="btn" [routerLink]="['/books', n.product_id]">{{ n.in_stock ? 'Buy now' : 'Open' }}</a>
+            <a class="btn" [routerLink]="['/books', n.product_id]">{{ language.tr(n.in_stock ? 'Buy now' : 'Open') }}</a>
           </article>
         }
       }
 
-      <h2>Waiting list</h2>
+      <h2>{{ language.tr('Waiting list') }}</h2>
       @for (n of waiting(); track n.request_id) {
         <article class="notice">
           <div>
-            <strong>{{ n.product_name }}</strong>&nbsp;<span class="muted">by {{ n.author }}</span>
-            <p class="muted small">Waiting since {{ n.requested_at | date: 'd MMM y' }}</p>
+            <strong>{{ language.bookTitle(n.product_name) }}</strong>&nbsp;<span class="muted">{{ language.tr('Author:') }} {{ language.authorName(n.author) }}</span>
+            <p class="muted small">{{ language.tr('Waiting since') }} {{ n.requested_at | date: 'd MMM y':undefined:language.dateLocale() }}</p>
           </div>
           <button type="button" class="btn btn-secondary" (click)="account.stopWaiting(n.product_id).subscribe()">
-            Stop waiting
+          {{ language.tr('Stop waiting') }}
           </button>
         </article>
       } @empty {
         <p class="muted">
-          You are not waiting for any book. Press “Notify me” on a sold-out book in the
-          <a routerLink="/catalog">catalog</a>.
+          {{ language.tr('You are not waiting for any book. Press “Notify me” on a sold-out book in the') }}
+          <a routerLink="/catalog">{{ language.tr('catalog') }}</a>.
         </p>
       }
     }
@@ -60,6 +61,7 @@ export class NotificationsComponent implements OnInit {
   private api = inject(ApiService);
   auth = inject(AuthService);
   account = inject(AccountService);
+  language = inject(LanguageService);
 
   // Какие уведомления были новыми в момент открытия страницы: метка «New» держится до следующего захода
   newIds = signal(new Set<number>());

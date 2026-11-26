@@ -1,67 +1,102 @@
-<section class="page">
-  <header class="catalog-head">
-    <h1>Our books</h1>
-    <p>Browse by category and find your next book</p>
+<section class="page catalog-page">
+  <div class="catalog-search-wrap">
+    <label class="catalog-search">
+      <span class="visually-hidden">{{ language.searchLabel() }}</span>
+      <input type="search" autocomplete="off" [ngModel]="searchQuery()" (ngModelChange)="updateSearch($event)"
+             (focus)="searchOpen.set(true)" [attr.aria-expanded]="searchOpen()"
+             (keydown.escape)="closeSuggestions()" (keydown.enter)="closeSuggestions()"
+             [placeholder]="language.searchPlaceholder()" [attr.aria-label]="language.searchLabel()" />
+    </label>
+    @if (searchOpen() && searchQuery().trim()) {
+      <div class="catalog-suggestions" role="listbox">
+        @if (authorSuggestions().length) {
+          <div class="catalog-suggestion-group">
+            <p>{{ language.authorSuggestionsLabel() }}</p>
+            @for (author of authorSuggestions(); track author.value) {
+              <button type="button" role="option" (click)="chooseAuthor(author.value)">{{ author.label }}</button>
+            }
+          </div>
+        }
+        @if (bookSuggestions().length) {
+          <div class="catalog-suggestion-group">
+            <p>{{ language.bookSuggestionsLabel() }}</p>
+            @for (book of bookSuggestions(); track book.product_id) {
+              <button type="button" role="option" (click)="chooseBook(book)">
+                {{ language.bookTitle(book.product_name) }} <span>— {{ language.authorName(book.author) }}</span>
+              </button>
+            }
+          </div>
+        }
+        @if (!authorSuggestions().length && !bookSuggestions().length) {
+          <p class="catalog-suggestions-empty">{{ language.searchNoSuggestions() }}</p>
+        }
+      </div>
+    }
+  </div>
 
-    <div class="genre-words" aria-label="Filter books by category">
+  <header class="catalog-head">
+    <h1>{{ language.text('catalog.title') }}</h1>
+    <p>{{ language.text('catalog.subtitle') }}</p>
+
+    <div class="genre-words" [attr.aria-label]="language.tr('Filter books by category')">
       <button
         type="button"
         class="genre-word"
         [class.genre-word-active]="filters.category_id === null"
         (click)="selectCategory(null)"
-      >All</button>
+      >{{ language.text('catalog.all') }}</button>
       @for (category of categories(); track category.category_id) {
         <button
           type="button"
           class="genre-word"
           [class.genre-word-active]="filters.category_id === category.category_id"
           (click)="selectCategory(category.category_id)"
-        >{{ category.category_name }}</button>
+        >{{ language.category(category.category_name) }}</button>
       }
     </div>
 
     <!-- Фильтры по цене и рейтингу + сортировка -->
     <div class="filter-bar">
       <label class="filter-field">
-        <span>Price from, ₸</span>
+        <span>{{ language.text('catalog.priceFrom') }}</span>
         <input type="number" min="0" step="500" placeholder="0"
                [(ngModel)]="filters.min_price" (change)="load()" />
       </label>
       <label class="filter-field">
-        <span>Price to, ₸</span>
-        <input type="number" min="0" step="500" placeholder="any"
+        <span>{{ language.text('catalog.priceTo') }}</span>
+        <input type="number" min="0" step="500" [placeholder]="language.text('catalog.any')"
                [(ngModel)]="filters.max_price" (change)="load()" />
       </label>
       <label class="filter-field">
-        <span>Rating</span>
+        <span>{{ language.text('catalog.rating') }}</span>
         <select [(ngModel)]="filters.min_rating" (change)="load()">
-          <option [ngValue]="null">Any rating</option>
-          <option [ngValue]="4">★ 4 and up</option>
-          <option [ngValue]="3">★ 3 and up</option>
-          <option [ngValue]="2">★ 2 and up</option>
+          <option [ngValue]="null">{{ language.text('catalog.anyRating') }}</option>
+          <option [ngValue]="4">★ 4 {{ language.text('catalog.andUp') }}</option>
+          <option [ngValue]="3">★ 3 {{ language.text('catalog.andUp') }}</option>
+          <option [ngValue]="2">★ 2 {{ language.text('catalog.andUp') }}</option>
         </select>
       </label>
       <label class="filter-field">
-        <span>Sort by</span>
+        <span>{{ language.text('catalog.sort') }}</span>
         <select [(ngModel)]="filters.ordering" (change)="load()">
-          <option value="">Default</option>
-          <option value="price">Price: low to high</option>
-          <option value="-price">Price: high to low</option>
-          <option value="-rating">Top rated</option>
+          <option value="">{{ language.text('catalog.default') }}</option>
+          <option value="price">{{ language.text('catalog.lowHigh') }}</option>
+          <option value="-price">{{ language.text('catalog.highLow') }}</option>
+          <option value="-rating">{{ language.text('catalog.topRated') }}</option>
         </select>
       </label>
       @if (hasExtraFilters()) {
-        <button type="button" class="filter-reset" (click)="resetFilters()">Reset</button>
+        <button type="button" class="filter-reset" (click)="resetFilters()">{{ language.text('catalog.reset') }}</button>
       }
     </div>
   </header>
 
   <!-- Top rating: подиум из трёх лучших книг по оценкам покупателей (с учётом выбранной категории) -->
   @if (podium().length > 0) {
-    <section class="podium" aria-label="Top rated books">
+    <section class="podium" [attr.aria-label]="language.tr('Top rated books')">
       <div class="podium-head">
-        <h2>Top rated</h2>
-        <span class="muted small">by our customers' reviews</span>
+        <h2>{{ language.text('catalog.topRated') }}</h2>
+        <span class="muted small">{{ language.text('catalog.byReviews') }}</span>
       </div>
       <div class="podium-row">
         @for (place of podiumOrder(); track place.book.product_id) {
@@ -69,12 +104,12 @@
             <!-- Небольшая карточка: место, название, звёзды, оценка и число отзывов -->
             <a class="podium-card" [routerLink]="['/books', place.book.product_id]">
               <span class="podium-rank">#{{ place.rank }}</span>
-              <strong class="podium-title">{{ place.book.product_name }}</strong>
-              <span class="podium-author">{{ place.book.author }}</span>
+              <strong class="podium-title">{{ language.bookTitle(place.book.product_name) }}</strong>
+              <span class="podium-author">{{ language.authorName(place.book.author) }}</span>
               <app-stars [rating]="place.book.avg_rating" />
               <span class="podium-score">
                 {{ place.book.avg_rating | number: '1.1-1' }} ·
-                {{ place.book.review_count }} {{ place.book.review_count === 1 ? 'review' : 'reviews' }}
+                {{ place.book.review_count }} {{ language.tr('reviews') }}
               </span>
               <span class="podium-price">{{ place.book.price | number: '1.0-0' }} ₸</span>
             </a>
@@ -86,14 +121,14 @@
   }
 
   @if (loading()) {
-    <p class="muted">Loading…</p>
+    <p class="muted">{{ language.tr('Loading…') }}</p>
   } @else if (error()) {
-    <p class="alert alert-error">{{ error() }}</p>
-  } @else if (products().length === 0) {
-    <p class="muted empty-result">No books match these filters.</p>
+    <p class="alert alert-error">{{ language.tr(error()) }}</p>
+  } @else if (visibleProducts().length === 0) {
+    <p class="muted empty-result">{{ language.text('catalog.noMatch') }}</p>
   } @else {
     <div class="book-grid">
-      @for (p of products(); track p.product_id) {
+      @for (p of visibleProducts(); track p.product_id) {
         <ng-container *ngTemplateOutlet="bookCard; context: { $implicit: p }" />
       }
     </div>
@@ -105,47 +140,47 @@
   <article class="book-card">
     <div class="book-card-top">
       <div>
-        <a class="book-card-name" [routerLink]="['/books', p.product_id]">{{ p.product_name }}</a>
+        <a class="book-card-name" [routerLink]="['/books', p.product_id]">{{ language.bookTitle(p.product_name) }}</a>
         <strong class="book-card-price">{{ p.price | number: '1.0-0' }} ₸</strong>
       </div>
       <button
         class="book-card-add"
         [disabled]="!canAdd(p)"
         (click)="cart.add(p)"
-        [attr.aria-label]="'Add to cart: ' + p.product_name"
+        [attr.aria-label]="language.tr('Add to cart') + ': ' + language.bookTitle(p.product_name)"
       >
         +
       </button>
     </div>
 
     <a class="book-cover" [routerLink]="['/books', p.product_id]" [style.background]="coverColor(p)">
-      <span class="book-cover-title">{{ p.product_name }}</span>
-      <span class="book-cover-author">{{ p.author }}</span>
+      <span class="book-cover-title">{{ language.bookTitle(p.product_name) }}</span>
+      <span class="book-cover-author">{{ language.authorName(p.author) }}</span>
     </a>
 
     <a class="book-card-rating" [routerLink]="['/books', p.product_id]">
       <app-stars [rating]="p.avg_rating" />
       @if (p.review_count > 0) {
-        <span>{{ p.avg_rating }} · {{ p.review_count }} {{ p.review_count === 1 ? 'review' : 'reviews' }}</span>
+        <span>{{ p.avg_rating }} · {{ p.review_count }} {{ language.tr('reviews') }}</span>
       } @else {
-        <span>No reviews yet</span>
+        <span>{{ language.text('catalog.noReviews') }}</span>
       }
     </a>
 
     <div class="book-card-info">
-      <span>{{ p.category_name }}</span>
+      <span>{{ language.category(p.category_name) }}</span>
       @if (p.available === 0) {
-        <span class="stock stock-out">Out of stock</span>
+        <span class="stock stock-out">{{ language.text('catalog.outOfStock') }}</span>
       } @else if (p.available < 10) {
-        <span class="stock stock-low">Only {{ p.available }} left</span>
+        <span class="stock stock-low">{{ language.text('catalog.only') }} {{ p.available }} {{ language.text('catalog.left') }}</span>
       } @else {
-        <span class="stock">{{ p.available }} in stock</span>
+        <span class="stock">{{ p.available }} {{ language.text('catalog.inStock') }}</span>
       }
     </div>
 
     @if (cart.quantityOf(p.product_id) > 0) {
       <a class="book-card-link" [routerLink]="auth.user() ? '/account/cart' : '/cart'">
-        In cart: {{ cart.quantityOf(p.product_id) }}
+        {{ language.tr('In cart') }}: {{ cart.quantityOf(p.product_id) }}
       </a>
     }
   </article>

@@ -41,7 +41,11 @@ class BrevoEmailBackend(BaseEmailBackend):
         return sent
 
     def _send(self, message):
+        if not settings.BREVO_API_KEY:
+            raise ValueError("BREVO_API_KEY is not configured; back-in-stock email was not sent.")
         sender_name, sender_email = parseaddr(message.from_email or settings.DEFAULT_FROM_EMAIL)
+        if not sender_email or sender_email.endswith(".local"):
+            raise ValueError("Set DEFAULT_FROM_EMAIL to an address verified with Brevo.")
         body = {
             "sender": {"name": sender_name or "Online Book Shop", "email": sender_email},
             "to": [{"email": address} for address in message.to],

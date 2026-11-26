@@ -6,6 +6,9 @@ export interface Product {
   product_name: string;
   author: string;
   description: string;
+  page_count: number | null;
+  edition_info: string;
+  available_languages: string[];
   publication_year: number | null;
   genre: string;
   category_id: number | null;

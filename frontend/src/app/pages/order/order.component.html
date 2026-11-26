@@ -1,11 +1,11 @@
 <section class="page">
   @if (error()) {
-    <p class="alert alert-error">{{ error() }}</p>
+    <p class="alert alert-error">{{ language.tr(error()) }}</p>
   }
   @if (order(); as o) {
     <header class="page-head">
-      <h1>Order #{{ o.order_id }}</h1>
-      <p class="muted">{{ o.customer_name }} · {{ o.order_date | date: 'dd.MM.yyyy HH:mm' }}</p>
+      <h1>{{ language.tr('Order #') }}{{ o.order_id }}</h1>
+      <p class="muted">{{ o.customer_name }} · {{ o.order_date | date: 'dd.MM.yyyy HH:mm':undefined:language.dateLocale() }}</p>
     </header>
 
     <div class="two-col">
@@ -13,14 +13,14 @@
         <div class="status-row">
           <span class="badge badge-{{ o.status }}">
             @switch (o.status) {
-              @case ('reserved') { Reserved }
-              @case ('paid') { Paid }
-              @case ('cancelled') { Cancelled }
+              @case ('reserved') { {{ language.tr('Reserved') }} }
+              @case ('paid') { {{ language.tr('Paid') }} }
+              @case ('cancelled') { {{ language.tr('Cancelled') }} }
             }
           </span>
           @if (o.status === 'reserved') {
             <span class="timer" [class.timer-low]="secondsLeft() < 120">
-              Reserved for {{ countdown() }}
+              {{ language.tr('Reserved for') }} {{ countdown() }}
             </span>
           }
         </div>
@@ -28,38 +28,38 @@
         @for (item of o.items; track item.order_item_id) {
           <div class="line">
             <div>
-              <strong>{{ item.product_name }}</strong>
+              <strong>{{ language.bookTitle(item.product_name) }}</strong>
               <div class="muted small">{{ item.product_id }} · {{ item.quantity }} × {{ item.unit_price | number: '1.0-0' }} ₸</div>
             </div>
             <span class="line-sum">{{ item.quantity * +item.unit_price | number: '1.0-0' }} ₸</span>
           </div>
         }
         <div class="line small">
-          <span>Delivery</span>
+          <span>{{ language.tr('Delivery') }}</span>
           <span>{{ o.delivery_fee | number: '1.0-0' }} ₸</span>
         </div>
         @if (o.address; as address) {
           <p class="muted small">
             {{ address.city }}, {{ address.full_address }}
-            · {{ address.within_city ? 'inside city limits' : 'outside city limits' }}
-            {{ address.entrance ? '· entrance ' + address.entrance : '' }}
-            {{ address.apartment ? '· apt. ' + address.apartment : '' }}
-            {{ address.floor ? '· floor ' + address.floor : '' }}
-            {{ address.intercom_code ? '· intercom ' + address.intercom_code : '' }}
+            · {{ language.tr(address.within_city ? 'inside city limits' : 'outside city limits') }}
+            {{ address.entrance ? '· ' + language.tr('entrance') + ' ' + address.entrance : '' }}
+            {{ address.apartment ? '· ' + language.tr('apt.') + ' ' + address.apartment : '' }}
+            {{ address.floor ? '· ' + language.tr('floor') + ' ' + address.floor : '' }}
+            {{ address.intercom_code ? '· ' + language.tr('intercom') + ' ' + address.intercom_code : '' }}
           </p>
         }
         <div class="line line-total">
-          <strong>Total</strong>
+          <strong>{{ language.tr('Total') }}</strong>
           <strong>{{ o.total | number: '1.0-0' }} ₸</strong>
         </div>
 
         @if (o.payments.length > 0) {
-          <h3>Payment attempts</h3>
+          <h3>{{ language.tr('Payment attempts') }}</h3>
           @for (p of o.payments; track p.payment_id) {
             <div class="line small">
               <span class="mono">{{ p.transaction_id }}</span>
-              <span class="muted">{{ p.paid_at | date: 'HH:mm:ss' }}</span>
-              <span class="badge badge-{{ p.status }}">{{ p.status }}</span>
+              <span class="muted">{{ p.paid_at | date: 'HH:mm:ss':undefined:language.dateLocale() }}</span>
+              <span class="badge badge-{{ p.status }}">{{ language.tr(p.status) }}</span>
             </div>
           }
         }
@@ -69,9 +69,9 @@
         @switch (o.status) {
           @case ('reserved') {
             <form class="form" (ngSubmit)="pay()">
-              <h2>Payment</h2>
+              <h2>{{ language.tr('Payment') }}</h2>
               <label>
-                Card number
+                {{ language.tr('Card number') }}
                 <input
                   name="card"
                   inputmode="numeric"
@@ -82,75 +82,74 @@
                 />
               </label>
               @if (payError()) {
-                <p class="alert alert-error">{{ payError() }}</p>
+                <p class="alert alert-error">{{ language.tr(payError()) }}</p>
               }
               <button class="btn btn-wide" type="submit" [disabled]="paying() || cardNumber.length < 19">
-                {{ paying() ? 'Processing…' : 'Pay ' + (o.total | number: '1.0-0') + ' ₸' }}
+                {{ paying() ? language.tr('Processing…') : language.tr('Pay') + ' ' + (o.total | number: '1.0-0') + ' ₸' }}
               </button>
               <p class="muted small">
-                This is a simulated bank, so no real card is needed.
-                Any 16 digits will work. A card ending in <b>0000</b> will be declined.
+                {{ language.tr('This is a simulated bank, so no real card is needed. Any 16 digits will work. A card ending in 0000 will be declined.') }}
               </p>
             </form>
           }
           @case ('paid') {
             <div class="done">
-              <h2>Thank you for your purchase!</h2>
-              <a class="btn" routerLink="/catalog">Back to catalog</a>
+              <h2>{{ language.tr('Thank you for your purchase!') }}</h2>
+              <a class="btn" routerLink="/catalog">{{ language.tr('Back to catalog') }}</a>
             </div>
           }
           @case ('cancelled') {
             <div class="done">
-              <h2>Reservation expired</h2>
-              <p class="muted">The order wasn't paid within 15 minutes, so the books are available again.</p>
-              <a class="btn" routerLink="/catalog">Order again</a>
+              <h2>{{ language.tr('Reservation expired') }}</h2>
+              <p class="muted">{{ language.tr('The order wasn\'t paid within 15 minutes, so the books are available again.') }}</p>
+              <a class="btn" routerLink="/catalog">{{ language.tr('Order again') }}</a>
             </div>
           }
         }
         
       <div class="support">
           <button class="btn btn-secondary btn-wide" type="button" (click)="toggleSupport()">
-            {{ supportOpen() ? 'Hide support form' : 'Contact support about this order' }}
+            {{ language.tr(supportOpen() ? 'Hide support form' : 'Contact support about this order') }}
           </button>
           @if (supportOpen()) {
             @if (supportTicket(); as t) {
-              <p class="alert alert-ok">Request #{{ t.ticket_id }} sent. Our support team will review it.</p>
+              <p class="alert alert-ok">{{ language.tr('Request #') }}{{ t.ticket_id }} {{ language.tr('sent. Our support team will review it.') }}</p>
             } @else {
               <form class="form" (ngSubmit)="sendSupport()">
                 <label>
-                  Topic
+                  {{ language.tr('Topic') }}
                   <select name="topic" [(ngModel)]="supportTopic">
-                    <option value="refund">Refund</option>
-                    <option value="delivery">Delivery</option>
-                    <option value="other">Other</option>
+                    <option value="refund">{{ language.tr('Refund') }}</option>
+                    <option value="delivery">{{ language.tr('Delivery') }}</option>
+                    <option value="other">{{ language.tr('Other') }}</option>
                   </select>
                 </label>
                 <label>
-                  Message
+                  {{ language.tr('Message') }}
                   <textarea
                     name="message"
                     rows="4"
                     maxlength="1000"
-                    placeholder="Describe the problem (at least 10 characters, no links or rude words)"
+                    [placeholder]="language.tr('Describe the problem (at least 10 characters, no links or rude words)')"
                     [(ngModel)]="supportMessage"
                   ></textarea>
                 </label>
                 @if (supportError()) {
-                  <p class="alert alert-error">{{ supportError() }}</p>
+                  <p class="alert alert-error">{{ language.tr(supportError()) }}</p>
                 }
                 <button class="btn btn-wide" type="submit" [disabled]="!canSendSupport()">
-                  {{ supportSending() ? 'Sending…' : 'Send to support' }}
+                  {{ language.tr(supportSending() ? 'Sending…' : 'Send to support') }}
                 </button>
               </form>
             }
           }
 
           @if (tickets().length > 0) {
-            <h3>Your requests</h3>
+            <h3>{{ language.tr('Your requests') }}</h3>
             @for (t of tickets(); track t.ticket_id) {
               <div class="ticket">
                 <div class="line small">
-                  <span><strong>#{{ t.ticket_id }}</strong> · {{ t.topic }} · {{ t.created_at | date: 'dd.MM.yyyy HH:mm' }}</span>
+                  <span><strong>#{{ t.ticket_id }}</strong> · {{ language.tr(t.topic) }} · {{ t.created_at | date: 'dd.MM.yyyy HH:mm':undefined:language.dateLocale() }}</span>
                   <span class="badge" [class.badge-paid]="t.status === 'closed'" [class.badge-reserved]="t.status !== 'closed'">
                     {{ statusLabel(t.status) }}
                   </span>
@@ -158,11 +157,11 @@
                 <p class="small">{{ t.message }}</p>
                 @if (t.staff_reply) {
                   <div class="ticket-reply">
-                    <strong class="small">Support reply</strong>
+                    <strong class="small">{{ language.tr('Support reply') }}</strong>
                     <p class="small">{{ t.staff_reply }}</p>
                   </div>
                 } @else {
-                  <p class="muted small">No reply yet.</p>
+                  <p class="muted small">{{ language.tr('No reply yet.') }}</p>
                 }
               </div>
             }
@@ -171,6 +170,6 @@
       </div>
     </div>
   } @else if (!error()) {
-    <p class="muted">Loading…</p>
+    <p class="muted">{{ language.tr('Loading…') }}</p>
   }
 </section>

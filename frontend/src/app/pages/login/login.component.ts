@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-login',
@@ -13,6 +14,7 @@ export class LoginComponent {
   private api = inject(ApiService);
   private auth = inject(AuthService);
   private router = inject(Router);
+  language = inject(LanguageService);
 
   email = '';
   password = '';
@@ -28,7 +30,7 @@ export class LoginComponent {
         this.router.navigate(['/account']); // после входа — в личный кабинет
       },
       error: (err) => {
-        this.error.set(errorText(err));
+        this.error.set(this.language.tr(errorText(err)));
         this.sending.set(false);
       },
     });

@@ -5,6 +5,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AccountService } from './services/account.service';
 import { AuthService } from './services/auth.service';
 import { CartService } from './services/cart.service';
+import { LanguageService } from './services/language.service';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +13,7 @@ import { CartService } from './services/cart.service';
   templateUrl: './app.component.html',
 })
 export class AppComponent {
+  language = inject(LanguageService);
   cart = inject(CartService);
   auth = inject(AuthService);
   account = inject(AccountService); // счётчики уведомлений и избранного в меню
