@@ -45,6 +45,11 @@ class Customer(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(max_length=100, unique=True)  # UNIQUE: два одинаковых email нельзя
     registered_at = models.DateField(auto_now_add=True)  # дата ставится сама
+    # Любимые категории, которые покупатель выбрал сам в кабинете ("For you").
+    # M:N: у покупателя много категорий, у категории много покупателей -> отдельная таблица
+    favorite_categories = models.ManyToManyField(
+        "Category", blank=True, related_name="fans", db_table="customer_favorite_categories"
+    )
 
     class Meta:
         db_table = "customers"

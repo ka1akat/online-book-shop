@@ -172,3 +172,11 @@ export interface StockRequestNotice {
   is_read: boolean;
   in_stock: boolean;
 }
+
+// Подборка «For you» (GET /api/recommendations/)
+export interface Recommendations {
+  based_on: 'favorites' | 'activity' | 'top_rated'; // по чему подобраны книги
+  categories: string[];
+  books: Product[];
+}
+

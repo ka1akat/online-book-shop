@@ -10,10 +10,11 @@ import { AuthService } from '../../services/auth.service';
 import { CartService } from '../../services/cart.service';
 import { Product, Review } from '../../models';
 import { StarsComponent } from '../../stars.component';
+import { BookTileComponent } from '../../book-tile.component';
 
 @Component({
   selector: 'app-book',
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, StarsComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, StarsComponent, BookTileComponent],
   templateUrl: './book.component.html',
 })
 export class BookComponent implements OnInit {
@@ -50,13 +51,28 @@ export class BookComponent implements OnInit {
   // Уже есть мой отзыв? Тогда форма работает как «изменить отзыв»
   myReview = computed(() => (this.auth.user() ? this.reviews().find((r) => r.is_mine) ?? null : null));
 
+  // «You may also like»: похожие книги из той же категории
+  similar = signal<Product[]>([]);
+
   ngOnInit(): void {
-    this.productId = this.route.snapshot.paramMap.get('id') ?? '';
-    this.api.getProduct(this.productId).subscribe({
-      next: (book) => { this.book.set(book); this.loading.set(false); },
-      error: (err) => { this.error.set(errorText(err)); this.loading.set(false); },
+    // Подписка на адрес, а не snapshot: при переходе на похожую книгу (/books/P-1001 -> /books/P-1002)
+    // Angular оставляет ту же страницу, и нужно заново загрузить данные новой книги.
+    this.route.paramMap.subscribe((params) => {
+      this.productId = params.get('id') ?? '';
+      this.loading.set(true);
+      this.error.set('');
+      this.rating.set(0);
+      this.comment = '';
+      this.guestNotified.set(false);
+      this.notifyError.set('');
+      this.api.getProduct(this.productId).subscribe({
+        next: (book) => { this.book.set(book); this.loading.set(false); },
+        error: (err) => { this.error.set(errorText(err)); this.loading.set(false); },
+      });
+      this.loadReviews();
+      this.api.getSimilar(this.productId).subscribe({ next: (list) => this.similar.set(list), error: () => {} });
+      window.scrollTo({ top: 0 });
     });
-    this.loadReviews();
   }
 
   loadReviews(): void {

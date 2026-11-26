@@ -36,6 +36,11 @@ services:
         value: https://online-book-shop-xkbi.onrender.com
       - key: CSRF_TRUSTED_ORIGINS
         value: https://online-book-shop-api.onrender.com
+      # Ссылка на книгу в письме «книга снова в наличии»
+      - key: FRONTEND_URL
+        value: https://online-book-shop-xkbi.onrender.com
+      # BREVO_API_KEY и DEFAULT_FROM_EMAIL (письма через Brevo) — секрет, поэтому их нет в этом файле:
+      # добавьте их в Render -> online-book-shop-api -> Environment. Без ключа письмо пишется в Logs.
       # Администратор для /admin/: логин и email заданы здесь, пароль Render спросит при создании
       - key: DJANGO_SUPERUSER_USERNAME
         value: admin
