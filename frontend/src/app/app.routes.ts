@@ -17,13 +17,13 @@ import { AccountOverviewComponent } from './pages/account/account-overview.compo
 import { MyTicketsComponent } from './pages/my-tickets/my-tickets.component';
 import { AboutComponent } from './pages/about/about.component';
 import { accountGuard, toAccount } from './auth.guard';
-import { TopRatedComponent } from './pages/top-rated/top-rated.component';
 import { ForYouComponent } from './pages/for-you/for-you.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent, title: 'Online Book Shop' },
   { path: 'catalog', component: CatalogComponent, title: 'Catalog · Online Book Shop' },
-  { path: 'top-rated', component: TopRatedComponent, title: 'Top rating · Online Book Shop' },
+  // Top rating теперь подиум в каталоге; старый адрес ведёт туда
+  { path: 'top-rated', redirectTo: 'catalog' },
   { path: 'books/:id', component: BookComponent, title: 'Book · Online Book Shop' },
   { path: 'shop-reviews', component: ShopReviewsComponent, title: 'Shop reviews · Online Book Shop' },
   { path: 'about', component: AboutComponent, title: 'About us · Online Book Shop' },

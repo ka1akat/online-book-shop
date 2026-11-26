@@ -48,7 +48,7 @@ import { Category, Recommendations } from '../../models';
         @for (b of r.books; track b.product_id) {
           <app-book-tile [book]="b" />
         } @empty {
-          <p class="muted">You already have all books from these categories. Look at the <a routerLink="/top-rated">Top rating</a>.</p>
+          <p class="muted">You already have all books from these categories. Look at the top rated books in the <a routerLink="/catalog">catalog</a>.</p>
         }
       </div>
     }

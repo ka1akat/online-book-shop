@@ -56,6 +56,35 @@
     </div>
   </header>
 
+  <!-- Top rating: подиум из трёх лучших книг по оценкам покупателей (с учётом выбранной категории) -->
+  @if (podium().length > 0) {
+    <section class="podium" aria-label="Top rated books">
+      <div class="podium-head">
+        <h2>Top rated</h2>
+        <span class="muted small">by our customers' reviews</span>
+      </div>
+      <div class="podium-row">
+        @for (place of podiumOrder(); track place.book.product_id) {
+          <div class="podium-place podium-{{ place.rank }}">
+            <!-- Небольшая карточка: место, название, звёзды, оценка и число отзывов -->
+            <a class="podium-card" [routerLink]="['/books', place.book.product_id]">
+              <span class="podium-rank">#{{ place.rank }}</span>
+              <strong class="podium-title">{{ place.book.product_name }}</strong>
+              <span class="podium-author">{{ place.book.author }}</span>
+              <app-stars [rating]="place.book.avg_rating" />
+              <span class="podium-score">
+                {{ place.book.avg_rating | number: '1.1-1' }} ·
+                {{ place.book.review_count }} {{ place.book.review_count === 1 ? 'review' : 'reviews' }}
+              </span>
+              <span class="podium-price">{{ place.book.price | number: '1.0-0' }} ₸</span>
+            </a>
+            <div class="podium-step"><span>{{ place.rank }}</span></div>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
   @if (loading()) {
     <p class="muted">Loading…</p>
   } @else if (error()) {
@@ -65,54 +94,59 @@
   } @else {
     <div class="book-grid">
       @for (p of products(); track p.product_id) {
-        <article class="book-card">
-          <div class="book-card-top">
-            <div>
-              <a class="book-card-name" [routerLink]="['/books', p.product_id]">{{ p.product_name }}</a>
-              <strong class="book-card-price">{{ p.price | number: '1.0-0' }} ₸</strong>
-            </div>
-            <button
-              class="book-card-add"
-              [disabled]="!canAdd(p)"
-              (click)="cart.add(p)"
-              [attr.aria-label]="'Add to cart: ' + p.product_name"
-            >
-              +
-            </button>
-          </div>
-
-          <a class="book-cover" [routerLink]="['/books', p.product_id]" [style.background]="coverColor(p)">
-            <span class="book-cover-title">{{ p.product_name }}</span>
-            <span class="book-cover-author">{{ p.author }}</span>
-          </a>
-
-          <a class="book-card-rating" [routerLink]="['/books', p.product_id]">
-            <app-stars [rating]="p.avg_rating" />
-            @if (p.review_count > 0) {
-              <span>{{ p.avg_rating }} · {{ p.review_count }} {{ p.review_count === 1 ? 'review' : 'reviews' }}</span>
-            } @else {
-              <span>No reviews yet</span>
-            }
-          </a>
-
-          <div class="book-card-info">
-            <span>{{ p.category_name || 'Uncategorized' }}</span>
-            @if (p.available === 0) {
-              <span class="stock stock-out">Out of stock</span>
-            } @else if (p.available < 10) {
-              <span class="stock stock-low">Only {{ p.available }} left</span>
-            } @else {
-              <span class="stock">{{ p.available }} in stock</span>
-            }
-          </div>
-
-          @if (cart.quantityOf(p.product_id) > 0) {
-            <a class="book-card-link" [routerLink]="auth.user() ? '/account/cart' : '/cart'">
-              In cart: {{ cart.quantityOf(p.product_id) }}
-            </a>
-          }
-        </article>
+        <ng-container *ngTemplateOutlet="bookCard; context: { $implicit: p }" />
       }
     </div>
   }
 </section>
+
+<!-- Одна карточка книги: используется и в подиуме, и в общем списке -->
+<ng-template #bookCard let-p>
+  <article class="book-card">
+    <div class="book-card-top">
+      <div>
+        <a class="book-card-name" [routerLink]="['/books', p.product_id]">{{ p.product_name }}</a>
+        <strong class="book-card-price">{{ p.price | number: '1.0-0' }} ₸</strong>
+      </div>
+      <button
+        class="book-card-add"
+        [disabled]="!canAdd(p)"
+        (click)="cart.add(p)"
+        [attr.aria-label]="'Add to cart: ' + p.product_name"
+      >
+        +
+      </button>
+    </div>
+
+    <a class="book-cover" [routerLink]="['/books', p.product_id]" [style.background]="coverColor(p)">
+      <span class="book-cover-title">{{ p.product_name }}</span>
+      <span class="book-cover-author">{{ p.author }}</span>
+    </a>
+
+    <a class="book-card-rating" [routerLink]="['/books', p.product_id]">
+      <app-stars [rating]="p.avg_rating" />
+      @if (p.review_count > 0) {
+        <span>{{ p.avg_rating }} · {{ p.review_count }} {{ p.review_count === 1 ? 'review' : 'reviews' }}</span>
+      } @else {
+        <span>No reviews yet</span>
+      }
+    </a>
+
+    <div class="book-card-info">
+      <span>{{ p.category_name || 'Uncategorized' }}</span>
+      @if (p.available === 0) {
+        <span class="stock stock-out">Out of stock</span>
+      } @else if (p.available < 10) {
+        <span class="stock stock-low">Only {{ p.available }} left</span>
+      } @else {
+        <span class="stock">{{ p.available }} in stock</span>
+      }
+    </div>
+
+    @if (cart.quantityOf(p.product_id) > 0) {
+      <a class="book-card-link" [routerLink]="auth.user() ? '/account/cart' : '/cart'">
+        In cart: {{ cart.quantityOf(p.product_id) }}
+      </a>
+    }
+  </article>
+</ng-template>
