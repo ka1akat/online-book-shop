@@ -168,6 +168,11 @@ class Order(models.Model):
     def delivery_fee(self):
         if not self.address_id:
             return 0
+        # Доставка бесплатна, если сумма книг больше 10 000 тенге (правило в shop/delivery.py)
+        from .delivery import is_free_delivery
+        items_total = sum(item.quantity * item.unit_price for item in self.items.all())
+        if is_free_delivery(items_total):
+            return 0
         if self.address.within_city:
             return self.DELIVERY_FEE_IN_CITY
         return self.DELIVERY_FEE_OUTSIDE_CITY
