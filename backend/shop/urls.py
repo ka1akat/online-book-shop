@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .order_tools_views import CancelOrderView
 
 urlpatterns = [
     path("categories/", views.CategoryListView.as_view()),
@@ -25,6 +26,7 @@ urlpatterns = [
     path("wishlist/<str:pk>/", views.wishlist_item_view),
     path("orders/<uuid:code>/", views.OrderDetailView.as_view()),
     path("orders/<uuid:code>/pay/", views.pay_order_view),
+    path("orders/<int:order_id>/cancel/", CancelOrderView.as_view()),
     path("orders/<uuid:code>/tickets/", views.order_tickets_view),
     path("my-tickets/", views.my_tickets_view),
     path("register/", views.register_view),
